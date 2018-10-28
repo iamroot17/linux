@@ -121,7 +121,7 @@
  *
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-error-function-attribute
  */
-#if __has_attribute(__error__)
+#if __has_attribute(__error__) && !defined(CONFIG_CC_OPTIMIZE_FOR_DEBUGGING)
 # define __compiletime_error(msg)       __attribute__((__error__(msg)))
 #else
 # define __compiletime_error(msg)
@@ -293,7 +293,7 @@
  *
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-warning-function-attribute
  */
-#if __has_attribute(__warning__)
+#if __has_attribute(__warning__) && !defined(CONFIG_CC_OPTIMIZE_FOR_DEBUGGING)
 # define __compiletime_warning(msg)     __attribute__((__warning__(msg)))
 #else
 # define __compiletime_warning(msg)
