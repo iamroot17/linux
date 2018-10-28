@@ -120,7 +120,7 @@ static bool __head check_la57_support(unsigned long physaddr)
 	return true;
 }
 #else
-static bool __head check_la57_support(unsigned long physaddr)
+static inline bool __head check_la57_support(unsigned long physaddr)
 {
 	return false;
 }
