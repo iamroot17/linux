@@ -14,4 +14,4 @@ Solution
 ---------
 |이름|링크|
 |--|---|
-|KangDroid[강현우]|[Linux Kernel Study 1st week practice, CH2-7 Question](https://github.com/KangDroid/iamroot17_1/blob/master/practice/chapter_02/question_7/kangdroid_sol.md)|
+|KangDroid[강현우]|[Linux Kernel Study 1st week practice, CH2-7 Question](https://github.com/clover1043/iamroot17_1/blob/master/practice/chapter_02/question_7/kangdroid_sol.md)|
