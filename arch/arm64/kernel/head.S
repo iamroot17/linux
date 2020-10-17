@@ -579,7 +579,17 @@ EXPORT_SYMBOL(kimage_vaddr)
  * booted in EL1 or EL2 respectively.
  */
 SYM_FUNC_START(el2_setup)
+	/*; Iamroot17A 2020.Oct.17
+	 *;
+	 *; SPsel 레지스터의 설정 값을 1로 변경 (스택 포인터로 EL0를 쓸 것인지,
+	 *; 혹은 EL1/EL2를 사용할 것인지 선택)
+	 *; */
 	msr	SPsel, #1			// We want to use SP_EL{1,2}
+	/*; Iamroot17A 2020.Oct.17
+	 *;
+	 *; 현재 Exception Level을 가져와서, 해당 값이 EL2일 경우 EL2에 맞게
+	 *; 코드 실행, 아닐 경우 EL1에 맞게 수행하고 현재 procedure 종료.
+	 *; */
 	mrs	x0, CurrentEL
 	cmp	x0, #CurrentEL_EL2
 	b.eq	1f
@@ -589,6 +599,12 @@ SYM_FUNC_START(el2_setup)
 	isb
 	ret
 
+	/*; Iamroot17A 2020.Oct.17
+	 *;
+	 *; 본 분석에서는 EL2 (Hypervisor mode)로 동작하는 흐름은 분석하지
+	 *; 않는다. 단, EL1에서 처리하는 코드와 같은 내용이 어디에서 처리되는지
+	 *; 유사한 흐름을 확인하기 위한 분석은 수행한다.
+	 *; */
 1:	mov_q	x0, (SCTLR_EL2_RES1 | ENDIAN_SET_EL2)
 	msr	sctlr_el2, x0
 
