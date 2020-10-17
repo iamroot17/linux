@@ -567,21 +567,56 @@ EXPORT_SYMBOL(kimage_vaddr)
  * Returns either BOOT_CPU_MODE_EL1 or BOOT_CPU_MODE_EL2 in w0 if
  * booted in EL1 or EL2 respectively.
  */
+/*; Iamroot17A 2020.Oct.17
+ *; ==v5.9 당시 el2_setup이었으나, init_kernel_el로 리팩토링됨==
+ *; */
+/*; SYM_FUNC_START(el2_setup) */
 SYM_FUNC_START(init_kernel_el)
+	/*; Iamroot17A 2020.Oct.17
+	 *; 현재 Exception Level을 가져와서, 해당 값이 EL2일 경우 EL2에 맞게
+	 *; 코드 실행, 아닐 경우 EL1에 맞게 수행하고 현재 procedure 종료.
+	 *; */
 	mrs	x0, CurrentEL
 	cmp	x0, #CurrentEL_EL2
+	/*; Iamroot17A 2020.Oct.17
+	 *; ==v5.9 당시 SYM_INNER_LABEL 방식을 사용하지 않았음==
+	 *; 이전에는 EL2 처리에 대한 label은 1f였음 */
 	b.eq	init_el2
 
 SYM_INNER_LABEL(init_el1, SYM_L_LOCAL)
 	mov_q	x0, INIT_SCTLR_EL1_MMU_OFF
 	msr	sctlr_el1, x0
 	isb
+	/*; Iamroot17A 2020.Oct.17
+	 *; SPsel의 값을 직접 변경하는 것이 아닌, SPSR(변경 가능한 PSTATE)에서
+	 *; EL1의 SP를 사용하도록 설정한다.
+	 *; PSTATE의 일부 비트 상태가 보장되지 않으므로, 안정적으로 초기화함
+	 *; PSTATE: Processor STATE, ARMv8에서는 직접 R/W가 불가
+	 *; SPSR: Saved Program Status Register
+	 *; x86의 FLAGS 레지스터처럼 ALU 플래그, 실행환경 등을 표현
+	 *; >> 관련 commit: d87a8e65b5101123a24cddeb7a8a2c7b45f7b60c
+	 *; ==v5.9 당시 SPsel을 직접 변경함==
+	 *; SPsel 레지스터의 설정 값을 1로 변경 (스택 포인터로 EL0를 쓸 것인지,
+	 *; 혹은 EL1/EL2를 사용할 것인지 선택)
+	 *; */
+	/*; msr	SPsel, #1			// We want to use SP_EL{1,2}*/
 	mov_q	x0, INIT_PSTATE_EL1
 	msr	spsr_el1, x0
+	/*; Iamroot17A 2020.Oct.17
+	 *; 이후 설정된 SPSR이 PSTATE에 반영되도록 eret으로 반환함
+	 *; ELR: Exception Link Register, exception이 끝나고 돌아갈 address
+	 *; ==v5.9 당시 SPsel을 직접 수정, ret으로 반환==
+	 *; */
+	/*; ret */
 	msr	elr_el1, lr
 	mov	w0, #BOOT_CPU_MODE_EL1
 	eret
 
+/*; Iamroot17A 2020.Oct.17
+ *; 본 분석에서는 EL2 (Hypervisor mode)로 동작하는 흐름은 분석하지
+ *; 않는다. 단, EL1에서 처리하는 코드와 같은 내용이 어디에서 처리되는지
+ *; 유사한 흐름을 확인하기 위한 분석은 수행한다.
+ *; */
 SYM_INNER_LABEL(init_el2, SYM_L_LOCAL)
 	mov_q	x0, HCR_HOST_NVHE_FLAGS
 	msr	hcr_el2, x0
