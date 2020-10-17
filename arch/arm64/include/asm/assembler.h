@@ -208,6 +208,12 @@ lr	.req	x30		// link register
 	 * @sym: name of the symbol
 	 */
 	.macro	adr_l, dst, sym
+	/*; Iamroot17A 2020.Oct.17
+	 *; ADR을 바로 사용할 경우, 현재 PC의 값에 따라 가리키는 값이 정확하지
+	 *; 않을 수도 있다. 이에 따라 해당 symbol의 주소를 페이지 단위로 adr을
+	 *; 수행하고, 나머지 하위 12bit을 더함으로서 PC 상대주소임에도 정확한
+	 *; 주소를 찾을 수 있게 한다.
+	 *; */
 	adrp	\dst, \sym
 	add	\dst, \dst, :lo12:\sym
 	.endm
@@ -302,9 +308,16 @@ alternative_endif
 	.macro	read_ctr, reg
 #ifndef __KVM_NVHE_HYPERVISOR__
 alternative_if_not ARM64_MISMATCHED_CACHE_TYPE
+	/*; Iamroot 17A 2020.Oct.17
+	 *; Cache type이 맞는 경우 "CTR_EL0"의 값을 가져온다.
+	 *; */
 	mrs	\reg, ctr_el0			// read CTR
 	nop
 alternative_else
+	/*; Iamroot 17A 2020.Oct.17
+	 *; ARM64_MISMATCHED_CACHE_TYPE일 경우, Feature Register변수에서
+	 *; ctr_el0의 값을 가져온다.
+	 *; */
 	ldr_l	\reg, arm64_ftr_reg_ctrel0 + ARM64_FTR_SYSVAL
 alternative_endif
 #else
@@ -337,8 +350,17 @@ alternative_cb_end
  */
 	.macro	dcache_line_size, reg, tmp
 	read_ctr	\tmp
+	/*; Iamroot17A 2020.Oct.17
+	 *; CTR_EL0의 DminLine 값을 추출한다.
+	 *; DminLine은 cache line 크기에 해당하는 WORD 값을 Log2한 값이다.
+	 *; */
 	ubfm		\tmp, \tmp, #16, #19	// cache line size encoding
 	mov		\reg, #4		// bytes per word
+	/*; Iamroot17A 2020.Oct.17
+	 *; DminLine은 log2를 취한 값이므로, Left shift를 하면 원본 값이 나온다.
+	 *; 여기서 byte 단위의 cache size를 가져오므로, 시작 숫자를 word 당
+	 *; byte 값인 4byte로 설정한다.
+	 *; */
 	lsl		\reg, \reg, \tmp	// actual cache line size
 	.endm
 

@@ -109,6 +109,11 @@
 	 *  x24        __primary_switch() .. relocate_kernel()  current RELR displacement
 	 */
 SYM_CODE_START(primary_entry)
+	/*; Iamroot17A 2020.Oct.17
+	 *; bl: Branch with Link, 다음 실행할 명령어의 PC(Program Counter)의
+	 *; 값을 LR(Link Register, ARM64에서는 X30)에 저장하고 argument 위치로
+	 *; 분기하는 명령어, ret명령을 통해 LR에 저장된 위치로 복귀 가능
+	 *; */
 	bl	preserve_boot_args
 	bl	init_kernel_el			// w0=cpu_boot_mode
 	adrp	x23, __PHYS_OFFSET
@@ -129,17 +134,66 @@ SYM_CODE_END(primary_entry)
  * Preserve the arguments passed by the bootloader in x0 .. x3
  */
 SYM_CODE_START_LOCAL(preserve_boot_args)
+	/*; Iamroot17A 2020.Oct.17
+	 *; FDT(dtb;Device Tree Blob)의 물리 주소
+	 *; 추후 변수를 저장할 boot_args의 주소가 X0에 할당되므로 미리 X21로
+	 *; 옮기는 작업을 수행함.
+	 *; */
 	mov	x21, x0				// x21=FDT
 
+	/*; Iamroot17A 2020.Oct.17
+	 *; ADR: PC의 상대 주소를 기반으로 load한다. 왜 상대 주소를 기준으로
+	 *; 하냐면, 리눅스 커널은 PIC(Position Independent Code)로 동작하는데,
+	 *; "Bootloader가 올린 커널의 물리메모리 상의 위치"와
+	 *; "커널이 가정하는 커널의 가상 주소 공간"이 다를 수도 있기 때문에
+	 *; MMU가 활성화 되기 전까지는 LDR대신 ADR을 사용해야 한다.
+	 *; (함수나 변수 주소 등 symbol에 해당하는 값을 읽을때)
+	 *; */
 	adr_l	x0, boot_args			// record the contents of
 	stp	x21, x1, [x0]			// x0 .. x3 at kernel entry
 	stp	x2, x3, [x0, #16]
 
+	/*; Iamroot17A 2020.Oct.17
+	 *; "dmb": Data Memory Barrier, 해당 명령어 전후로 메모리 접근 순서 분리
+	 *; "sy": System Sharable, 시스템 전체
+	 *; dmb는 캐시가 아니라 메모리 버퍼를 flush시킴. 즉 메모리에 대한
+	 *; 확실한 write를 하기 위해 수행함. 메모리에 기록하는 것을 확실하게
+	 *; 보장하기 위해 실행한다고 생각하면 됨.
+	 *; */
 	dmb	sy				// needed before dc ivac with
 						// MMU off
 
+	/*; Iamroot17A 2020.Oct.17
+	 *; "dcache_inval_poc" 호출 시, 기본 인자로 X0, X1을 사용한다.
+	 *; "X0": invalidate할 D-cache의 시작 주소
+	 *; "X1": invalidate할 D-cache의 끝 주소
+	 *; 이미 X0의 주소는 boot_args를 가리키고 있으므로, X1에 boot_args의
+	 *; 크기인 0x20 (4 * 8 bytes)만큼 더한다.
+	 *; ==v5.9의 경우, `__inval_dcache_area` 를 사용했으나, 리팩토링됨==
+	 *; "__inval_dcache_area" 호출 시, 기본 인자로 X0, X1을 사용한다.
+	 *; "X0": invalidate할 D-cache의 시작 주소
+	 *; "X1": invalidate할 D-cache의 크기
+	 *; 이미 X0의 주소는 boot_args를 가리키고 있으므로, X1만 수정한다.
+	 *; */
 	add	x1, x0, #0x20			// 4 x 8 bytes
+	/*; Iamroot17A 2020.Oct.17
+	 *; Boot시의 CPU 조건이 d-cache가 꺼져있는 상태임에도 해당 영역을
+	 *; 비우는 이유는 추후 MMU가 켜진 뒤 Clean & invalidate 시 잘못된
+	 *; 데이터가 반영되는 것을 막기 위함이다.
+	 *; */
 	b	dcache_inval_poc		// tail call
+	/*; Iamroot17A 2020.Oct.17
+	 *; 원래 해당 Procedure가 종료되고 원래 caller(primary_entry)의 위치로
+	 *; 돌아가려면 "ret" instruction을 사용해야 한다.
+	 *; 게다가 현재 call stack을 사용하고 있지 않으므로, return address는
+	 *; 다른 변수에 임시 저장되어야 한다. 하지만 "__inval_dcache_area"
+	 *; 내부에서 "ret"를 호출하므로 여기에선 생략했다.
+	 *; 만약 tail call 최적화가 없으면 이런 식으로 구성되어야 한다.
+	 *;	add	x1, x0, #0x20
+	 *;	bl	dcache_inval_poc
+	 *;	ret	x2
+	 *; https://en.wikipedia.org/wiki/Tail_call 참고
+	 *; */
 SYM_CODE_END(preserve_boot_args)
 
 /*

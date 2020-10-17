@@ -149,17 +149,47 @@ SYM_FUNC_START_PI(dcache_inval_poc)
  *	- start   - virtual start address of region
  *	- end     - virtual end address of region
  */
+	/*; Iamroot17A 2020.Oct.17
+	 *; == v5.9의 경우 현재 함수가 __inval_dcache_area였음 ==
+	 *; 당시 함수의 인자 형태는 아래와 같았음.
+	 *; X0는 Invalidate 할 D-Cache의 시작주소를 전달했으며
+	 *; X1은 Invalidate 할 D-Cache의 크기를 나타냈다.
+	 *; 여기에서 `add x1, x1, x0`를 함으로서 X1을 Invalidate할
+	 *; 끝 주소로 변경했으나, 현재는 이미 X1이 변경된 상태로 호출됨
+	 *; */
+	/*; add	x1, x1, x0 */
+	/*; Iamroot17A 2020.Oct.17
+	 *; d-cache line 크기를 이용하여 x1(끝 주소)의 align여부를 확인한다.
+	 *; */
 	dcache_line_size x2, x3
 	sub	x3, x2, #1
 	tst	x1, x3				// end cache line aligned?
+	/*; Iamroot17A 2020.Oct.17
+	 *; X1을 d-cache 크기에 맞게 align한다.
+	 *; */
 	bic	x1, x1, x3
+	/*; Iamroot17A 2020.Oct.17
+	 *; X1 (Invalidate 할 영역의 끝 주소)이 align된 주소가 아니라면
+	 *; Clean & Invalidate를 한다. (invalidate 하기 전에 수정한 값이
+	 *; 적용될 수 있게 해주고 Invalidate 처리한다.)
+	 *; branch시 1f는 아래 방향으로(forward) 1 label을 찾아 분기하라는 뜻
+	 *; 1b는 위 방향으로(backward) 1 label을 찾아 분기하라는 뜻
+	 *; */
 	b.eq	1f
 	dc	civac, x1			// clean & invalidate D / U line
+	/*; Iamroot17A 2020.Oct.17
+	 *; X0 (Invalidate 할 영역의 시작 주소)이 align되어있는지 확인하고,
+	 *; 해당 영역이 align되어있지 않다면 Clean & Invalidate를 한다.
+	 *; (이전의 X1의 align 확인 및 Clean & Invalidate와 같은 맥락)
+	 *; */
 1:	tst	x0, x3				// start cache line aligned?
 	bic	x0, x0, x3
 	b.eq	2f
 	dc	civac, x0			// clean & invalidate D / U line
 	b	3f
+	/*; Iamroot17A 2020.Oct.17
+	 *; d-cache size 단위로 invalidate하고, x1(끝 주소)까지 반복한다.
+	 *; */
 2:	dc	ivac, x0			// invalidate D / U line
 3:	add	x0, x0, x2
 	cmp	x0, x1
