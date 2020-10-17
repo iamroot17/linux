@@ -14,6 +14,13 @@
 	 * This ccmp instruction has no meaningful effect except that
 	 * its opcode forms the magic "MZ" signature required by UEFI.
 	 */
+	/*; Iamroot17A 2020.Oct.17
+	 *; UEFI를 사용할 경우, Magic number로 "MZ"를 요구함.
+	 *; 아래 "add x13, x18, #0x16"을 ARM64 machine code로는 0x4D5A0091
+	 *; 근데 왜 ".ascii MZ"나 ".long 0x4D5A0000"가 아니라 어셈블리 명령어로
+	 *; 표현했는지는 모르겠음.
+	 *; (v5.9 기준으로는 `add x13, x18, #0x16` 이었으나 아래와 같이 변경됨)
+	 *; */
 	ccmp	x18, #0, #0xd, pl
 #else
 	/*

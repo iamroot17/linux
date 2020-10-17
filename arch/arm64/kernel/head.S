@@ -43,6 +43,9 @@
 #error PAGE_OFFSET must be at least 2MB aligned
 #endif
 
+/*; Iamroot17A 2020.Oct.17
+ *; 여기가 bootloader 이후 커널의 최초 진입 지점이라 볼 수 있다.
+ *; */
 /*
  * Kernel startup entry point.
  * ---------------------------
@@ -71,10 +74,27 @@
 	.quad	0				// reserved
 	.quad	0				// reserved
 	.ascii	ARM64_IMAGE_MAGIC		// Magic number
+	/*; Iamroot17A 2020.Oct.17
+	 *; UEFI가 동작하는 PE(Portable Executable) 실행파일 형식을 제공하기
+	 *; 위해서는 PE Header 시작 전에 64bytes의 DOS header가 필요함.
+	 *; PE는 Windows 3.1부터 지원되기 시작했는데, 이때 하위호환성
+	 *; (This program cannot be run in DOS mode. 출력)을 위해
+	 *; 기존의 DOS MZ header로 시작하였다.
+	 *; 현대 PE header 해석을 위해서는 "MZ" magic number 검증과,
+	 *; PE의 시작점 offset 확인을 위한 [0x3C, 0x3F] 4byte의 값만 확인한다.
+	 *; "pe_header" label과 "_head" label 간의 offset 차이는 현재 0x3C이다.
+	 *;
+	 *; https://en.wikibooks.org/wiki/X86_Disassembly/Windows_Executable_Files 참고
+	 *; https://en.wikipedia.org/wiki/Portable_Executable 그림 참고
+	 *; */
 	.long	.Lpe_header_offset		// Offset to the PE header.
 
 	__EFI_PE_HEADER
 
+	/*; Iamroot17A 2020.Oct.17
+	 *; 실제 실행 코드는 여기서부터 진행되며, 결론적으로 최초 진입 지점은
+	 *; "primary_entry"라고 볼 수 있다. (기존 "stext"에서 변경됨)
+	 *; */
 	__INIT
 
 	/*
