@@ -399,6 +399,12 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	adrp	x0, init_pg_dir
 	adrp	x1, init_pg_end
 	sub	x1, x1, x0
+	/*; Iamroot17A 2020.Oct.24
+	 *; 아래 stp 4개 연속으로 있는 것은 Loop unrolling으로 보임.
+	 *; (branch에 의한 pipeline stall을 줄이기 위함)
+	 *; 보통 loop unrolling 단위는 cache size를 기준으로 함.
+	 *; >> https://en.wikipedia.org/wiki/Loop_unrolling 참고
+	 *; */
 1:	stp	xzr, xzr, [x0], #16
 	stp	xzr, xzr, [x0], #16
 	stp	xzr, xzr, [x0], #16
