@@ -357,6 +357,12 @@ SYM_CODE_END(preserve_boot_args)
  *     been enabled
  */
 SYM_FUNC_START_LOCAL(__create_page_tables)
+	/*; Iamroot17A 2020.Oct.24
+	 *; 아래 dcache_inval_poc 호출 시 link register(X30)이 overwrite되기
+	 *; 때문에 원래 return해야 할 주소(primary_entry의 bl __cpu_setup)를
+	 *; X28에 임시 보관한다. (__create_page_tables 마지막에 ret x28로 원래
+	 *; 위치에 맞게 복귀하게 된다.)
+	 *; */
 	mov	x28, lr
 
 	/*
@@ -365,9 +371,27 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	 * the kernel image, and thus are clean to the PoC per the boot
 	 * protocol.
 	 */
+	/*; Iamroot17A 2020.Oct.24
+	 *; init_pg_dir은 부팅되어 MMU on 이후 사용될 초기 커널 이미지가 올라갈
+	 *; 커널 주소 영역의 (0xFFFF..으로 시작하는 가상주소) 페이지들을 말한다.
+	 *; */
 	adrp	x0, init_pg_dir
+	/*; Iamroot17A 2020.Oct.24
+	 *; init_pg_end는 init_pg_dir에서부터 사용될 페이지들의 크기를 offset한
+	 *; 끝 주소를 뜻한다. (arch/arm64/kernel/vmlinux.lds.S 참고)
+	 *; 해당 크기는 INIT_DIR_SIZE로 정의되어있음.
+	 *; (arch/arm64/include/asm/kernel-pgtable.h 참고)
+	 *; */
 	adrp	x1, init_pg_end
+	/*; Iamroot17A 2020.Oct.24
+	 *; init page table 영역에 관련된 d-cache를 invalidate 해줌으로서
+	 *; 원치 않는 값이 씌여지는 현상을 방지한다.
+	 */
 	bl	dcache_inval_poc
+	/*; Iamroot17A 2020.Oct.24
+	 *; 왜 dcache_inval_poc 이후에는 "dmb"를 안하냐면
+	 *; dcache_inval_poc 안에서 이미 "dsb sy"가 수행되었기 때문이다.
+	 *; */
 
 	/*
 	 * Clear the init page tables.
