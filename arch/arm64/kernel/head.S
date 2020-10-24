@@ -37,6 +37,22 @@
 
 #include "efi-header.S"
 
+/*; Iamroot17A 2020.Oct.24
+ *; 원래 부팅 과정에서 사용하는 물리 주소의 offset이었으나, 현재 무의미해짐.
+ *; ARM64로 porting하는 과정에서 (아마도 ARM32에서) TEXT_OFFSET이 사용되었음.
+ *; (커널 이미지와 512KB의 BSS 크기를 Boot할 때 복사했으며, TEXT_OFFSET은 여기서
+ *;  BSS 영역의 크기를 의미했던 것으로 보임)
+ *; 하지만 현재는 해당 방식을 사용하지 않으며, 오히려 2MB로 align된
+ *; 커널 이미지를 512KB만큼 틀어지게 함.
+ *; 게다가 KASLR 도입 과정에서 relocatable kernel 개념을 적용하면서 커널의 물리
+ *; 주소가 중요하지 않게 됨.
+ *; (segment align만 잘 맞으면 되는데, 보통 64KB를 기준으로 하기 때문에 0이나
+ *;  512KB나 차이가 없어짐.)
+ *; >> 관련 commit: cfa7ede20f133cc81cef01dc3a516dda3a9721ee
+ *; ==v5.9 당시 하위호환성을 위해 TEXT_OFFSET 계산이 있었음==
+ *; 그때 당시에도 TEXT_OFFSET이 0으로 변경되었으므로, 리팩토링되었다 볼 수 있음
+ *; */
+/*; #define __PHYS_OFFSET	(KERNEL_START - TEXT_OFFSET) */
 #define __PHYS_OFFSET	KERNEL_START
 
 #if (PAGE_OFFSET & 0x1fffff) != 0
@@ -116,6 +132,14 @@ SYM_CODE_START(primary_entry)
 	 *; */
 	bl	preserve_boot_args
 	bl	init_kernel_el			// w0=cpu_boot_mode
+	/*; Iamroot17A 2020.Oct.24
+	 *; 커널 이미지의 재배치를 위한 offset의 값을 X23에 저장한다.
+	 *; 추후 해당 값은 KASLR(Kernel Address Space Layout Randomization)의
+	 *; offset으로 변형되는데, 지금은 기본적인 offset으로 설정한다고
+	 *; 생각하면 된다. (과거엔 __PHYS_OFFSET이 의미있었으나 지금은
+	 *; 커널 이미지 재배치로 인해 의미가 거의 없어진 상태다.)
+	 *; X23은 __create_page_tables에서 참조하는데 왜 먼저 수정하는지 의문
+	 *; */
 	adrp	x23, __PHYS_OFFSET
 	and	x23, x23, MIN_KIMG_ALIGN - 1	// KASLR offset, defaults to 0
 	bl	set_cpu_boot_mode_flag
