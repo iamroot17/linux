@@ -593,9 +593,35 @@ SYM_FUNC_START(el2_setup)
 	mrs	x0, CurrentEL
 	cmp	x0, #CurrentEL_EL2
 	b.eq	1f
+	/*; Iamroot17A 2020.Oct.24
+	 *;
+	 *; SCTLR_EL1에 32-bit mode에 대한 endianness를 설정한다. (64-bit은
+	 *; Little-endian으로 고정됨.) RES1은 SCTLR_EL1의 field bit 중
+	 *; reserved 값 중 기본 값을 1로 설정한 field들을 말한다. (추후 해당
+	 *; field가 다른 용도로 사용될 것을 고려하여 RES0 혹은 RES1을 결정.)
+	 *; 일부 RES1 필드는 ARMv8.x extension에서 사용된다.
+	 *;
+	 *; 상수 값인 64-bit를 직접 MSR로 집어넣지 못하기 때문에 X0에 넣으며,
+	 *; X0에도 64-bit를 직접 집어넣지 못하므로 mov_q 매크로를 사용한다.
+	 *; */
 	mov_q	x0, (SCTLR_EL1_RES1 | ENDIAN_SET_EL1)
 	msr	sctlr_el1, x0
+	/*; Iamroot17A 2020.Oct.24
+	 *;
+	 *; el2_setup procedure에서 최종적으로 W0에 선택될 Exception Level을
+	 *; 반환해야 한다. (현재 EL1으로 선택되었으므로, BOOT_CPU_MODE_EL1 선택)
+	 *; */
 	mov	w0, #BOOT_CPU_MODE_EL1		// This cpu booted in EL1
+	/*; Iamroot17A 2020.Oct.24
+	 *;
+	 *; ISB: Instruction Synchronization Barrier
+	 *; 해당 명령어를 경계로 이전의 Instruction이 모두 수행되게 한다.
+	 *; (미리 pipeline되어 있던 아래쪽 Instruction들을 모두 flush 시킴.)
+	 *; Context change operation 수행 시 호출되는 경우가 대표적.
+	 *; 현재 Head.S 기준으로는 MSR로 특정 설정을 변경했을 때, 이를
+	 *; 반영하지 않은 Instruction들이 수행되는 것을 막기 위해 barrier를
+	 *; 거는 것으로 보임.
+	 *; */
 	isb
 	ret
 
@@ -604,6 +630,11 @@ SYM_FUNC_START(el2_setup)
 	 *; 본 분석에서는 EL2 (Hypervisor mode)로 동작하는 흐름은 분석하지
 	 *; 않는다. 단, EL1에서 처리하는 코드와 같은 내용이 어디에서 처리되는지
 	 *; 유사한 흐름을 확인하기 위한 분석은 수행한다.
+	 *; */
+	/*; Iamroot17A 2020.Oct.24
+	 *;
+	 *; EL1의 경우와 같이 SCTLR_EL2에 32-bit mode에 대한 endianness를
+	 *; 설정한다. 또한 똑같이 RES1을 설정한다.
 	 *; */
 1:	mov_q	x0, (SCTLR_EL2_RES1 | ENDIAN_SET_EL2)
 	msr	sctlr_el2, x0
@@ -714,6 +745,11 @@ set_hcr:
 
 	cbz	x2, install_el2_stub
 
+	/*; Iamroot17A 2020.Oct.24
+	 *;
+	 *; el2_setup procedure에서 최종적으로 W0에 선택될 Exception Level을
+	 *; 반환해야 한다. (현재 EL2로 선택되었으므로, BOOT_CPU_MODE_EL2 선택)
+	 *; */
 	mov	w0, #BOOT_CPU_MODE_EL2		// This CPU booted in EL2
 	isb
 	ret
