@@ -1,6 +1,9 @@
 #ifndef __ASM_LINKAGE_H
 #define __ASM_LINKAGE_H
 
+/*; Iamroot17A 2020.Oct.24
+ *; ARM64에서 사용하는 align은 ".align 2"(4byte 단위)이다.
+ *; */
 #define __ALIGN		.align 2
 #define __ALIGN_STR	".align 2"
 

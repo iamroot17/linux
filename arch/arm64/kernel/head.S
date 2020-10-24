@@ -823,6 +823,20 @@ SYM_FUNC_END(set_cpu_boot_mode_flag)
  * 'Cache Writeback Granule' (CWG) worth of data. The linker script ensures
  * sufficient alignment that the CWG doesn't overlap another section.
  */
+	/*; Iamroot17A 2020.Oct.24
+	 *; 아래 ".popsection"까지 (__boot_cpu_mode, __early_cpu_boot_status)
+	 *; 선언된 symbol에 대하여 ".mmuoff.data.write" section으로 설정한다.
+	 *; 해당 section의 설정을 linker script에서 확인하면 2KB로 align되어
+	 *; 있는 것을 확인할 수 있다. ("aw"는 Alloc, Write임을 나타내는 flag)
+	 *; align을 해 주는 이유는 아키텍처마다 읽어오는 기본 크기(WORD)에
+	 *; 맞게 주소를 배치하여 메모리 접근 속도를 최적화하기 위함이다.
+	 *; ARM64의 경우 align이 되어 있지 않은 경우 alignment fault가 발생한다.
+	 *; >> ARMv8 Architecture Reference Manual, B2.5 참고
+	 *;	- Instruction: 언제나 fault 발생
+	 *;	- Data, Device Memory: 언제나 fault 발생
+	 *;		(현재 MMU off 상태이므로 모두 device memory 취급)
+	 *;	- Data, Normal Memory: 거의 다 발생
+	 *; */
 	.pushsection ".mmuoff.data.write", "aw"
 /*
  * We need to find out the CPU boot mode long after boot, so we need to

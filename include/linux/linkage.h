@@ -68,6 +68,19 @@
 #endif
 #endif
 
+/*; Iamroot17A 2020.Oct.24
+ *; .align SHIFT,FILL
+ *;	SHIFT: 숫자의 bit shift 단위로 align
+ *;		(ex. ".align 4": (1 << 4 == 16), 16bytes 단위로 align)
+ *;	FILL: align 과정에서 사용하지 않은 영역을 해당 값으로 채움.
+ *;		(ex. ".align 4,0x90"을 4bytes 변수에 적용할 경우
+ *;		 해당 4bytes를 제외한 나머지 12bytes를 0x90으로 채움)
+ *; 기본 __ALIGN이 4,0x90인 이유:
+ *; 아마 x86 기반 환경에서의 align 설정인 것으로 보임. 0x90은 NOP의 OpCode임
+ *; ifndef시 사용되는 값이므로, arch/ 아래 각 아키텍처 별 정의가 있을 듯.
+ *; >> https://sourceware.org/binutils/docs/as/Align.html 참고 (GNU as 설명)
+ *; >> https://en.wikipedia.org/wiki/NOP_(code) 참고
+ *; */
 #ifndef __ALIGN
 #define __ALIGN		.align 4,0x90
 #define __ALIGN_STR	".align 4,0x90"
