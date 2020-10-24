@@ -763,11 +763,31 @@ SYM_FUNC_END(init_kernel_el)
  * in w0. See arch/arm64/include/asm/virt.h for more info.
  */
 SYM_FUNC_START_LOCAL(set_cpu_boot_mode_flag)
+	/*; Iamroot17A 2020.Oct.24
+	 *; __boot_cpu_mode 주소를 X1에 읽어온다. (정확히는 __boot_cpu_mode[0])
+	 *; */
 	adr_l	x1, __boot_cpu_mode
+	/*; Iamroot17A 2020.Oct.24
+	 *; W0(이전의 el2_setup에서 수정한 현재 Boot Exception Level)이
+	 *; EL1인 경우 현재 X1이 가진 주소를 그대로 유지 (__boot_cpu_mode[0])
+	 *; EL2인 경우 X1의 주소에서 += 4byte를 한다. (__boot_cpu_mode[1])
+	 *; (__boot_cpu_mode를 현재 Boot Exception Level로 통일하려 함)
+	 *; */
 	cmp	w0, #BOOT_CPU_MODE_EL2
 	b.ne	1f
 	add	x1, x1, #4
+	/*; Iamroot17A 2020.Oct.24
+	 *; 앞에서 수정한 X1의 주소에 현재 Boot Exception Level로 수정한다.
+	 *; __boot_cpu_mode의 초기 값을 확인해보면 서로 반대로 되어 있다.
+	 *; set_cpu_boot_mode_flag가 완료된 상태라면 해당 배열이 전부
+	 *; 현재 Boot Exception Level로 통일되어 있을 것이다.
+	 *; */
 1:	str	w0, [x1]			// Save CPU boot mode
+	/*; Iamroot17A 2020.Oct.24
+	 *; __boot_cpu_mode의 값을 수정한 것을 보장하기 위해 Barrier 사용한다.
+	 *; 또한 수정 내역이 cache line에 반영되어 생기는 문제를 방지하기 위해
+	 *; d-cache를 invalidate함.
+	 *; */
 	dmb	sy
 	dc	ivac, x1			// Invalidate potentially stale cache line
 	ret
