@@ -568,18 +568,49 @@ alternative_endif
 	 *         between 2 and 4 movz/movk instructions (depending on the
 	 *         magnitude and sign of the operand)
 	 */
+	/*; Iamroot17A 2020.Oct.24
+	 *; AArch64 Relocation 표현 별 의미 (매크로 변수 앞에 붙은 :~: 부분)
+	 *; * abs: absolute
+	 *; * g0~3: group 0~3 (2 byte per each group)
+	 *; * s: signed
+	 *; * nc: not check (overflow check)
+	 *; mov_q매크로를 C코드로 변환하면 아래와 같은 식의 코드가 된다.
+	 *; ```c
+	 *; #if ((val <= INT32_MAX) || (val >= INT32_MIN))
+	 *;	reg = (val & 0x0000,0000,FFFF,0000);
+	 *; #else
+	 *;	#if ((val <= INT48_MAX) || (val >= INT48_MIN))
+	 *;		reg = (val & 0x0000,FFFF,0000,0000);
+	 *;	#else
+	 *;		reg = (val & 0xFFFF,0000,0000,0000);
+	 *;		reg |= (val & 0x0000,FFFF,0000,0000);
+	 *;	#endif
+	 *;	reg |= (val & 0x0000,0000,FFFF,0000);
+	 *; #endif
+	 *; reg |= (val & 0x0000,0000,0000,FFFF);
+	 *; ```
+	 *; 어셈블리 명령어가 담을 수 있는 상수 범위가 16-bit라서 이렇게
+	 *; 여러 단계로 쪼개서 수행하는 것으로 보임. 왜 굳이 컴파일러의 최적화에
+	 *; 맡기지 않고 이렇게 했을까에 대한 가설은 컴파일러 의존성 제거로
+	 *; 생각됨. (미리 최적화해버려서 컴파일러에 관계없이 같은 성능이 나오게)
+	 *; */
 	.macro	mov_q, reg, val
 	.if (((\val) >> 31) == 0 || ((\val) >> 31) == 0x1ffffffff)
+	/*; 32-bit 범위 숫자인 경우 일단 val[31:16]을 복사한다. */
 	movz	\reg, :abs_g1_s:\val
 	.else
 	.if (((\val) >> 47) == 0 || ((\val) >> 47) == 0x1ffff)
+	/*; 64-bit 범위이면서 val[63:48]이 0이면 val[47:32]을 복사한다. */
 	movz	\reg, :abs_g2_s:\val
 	.else
+	/*; val[63:48]의 값이 0이 아니면 val[63:32]까지 복사한다. */
 	movz	\reg, :abs_g3:\val
 	movk	\reg, :abs_g2_nc:\val
 	.endif
+	/*; 64-bit 범위인 경우, 남은 val[31:16]을 마저 복사한다. */
 	movk	\reg, :abs_g1_nc:\val
 	.endif
+	/*; 남은 val[15:0]을 마저 복사한다. */
 	movk	\reg, :abs_g0_nc:\val
 	.endm
 

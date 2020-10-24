@@ -584,8 +584,30 @@ SYM_FUNC_START(init_kernel_el)
 	b.eq	init_el2
 
 SYM_INNER_LABEL(init_el1, SYM_L_LOCAL)
+	/*; Iamroot17A 2020.Oct.24
+	 *; EL1의 SCTLR에 MMU가 꺼진 상태의 초기 값을 설정한다.
+	 *; SCTLR: System Control Register
+	 *; ==v5.9 당시 각 설정 플래그를 bitwise-or 하였으나, 리팩토링됨==
+	 *; SCTLR_EL1에 32-bit mode에 대한 endianness를 설정한다. (64-bit은
+	 *; Little-endian으로 고정됨.) RES1은 SCTLR_EL1의 field bit 중
+	 *; reserved 값 중 기본 값을 1로 설정한 field들을 말한다. (추후 해당
+	 *; field가 다른 용도로 사용될 것을 고려하여 RES0 혹은 RES1을 결정.)
+	 *; 일부 RES1 필드는 ARMv8.x extension에서 사용된다.
+	 *; 상수 값인 64-bit를 직접 MSR로 집어넣지 못하기 때문에 X0에 넣으며,
+	 *; X0에도 64-bit를 직접 집어넣지 못하므로 mov_q 매크로를 사용한다.
+	 *; */
+	/*; mov_q	x0, (SCTLR_EL1_RES1 | ENDIAN_SET_EL1) */
 	mov_q	x0, INIT_SCTLR_EL1_MMU_OFF
 	msr	sctlr_el1, x0
+	/*; Iamroot17A 2020.Oct.24
+	 *; ISB: Instruction Synchronization Barrier
+	 *; 해당 명령어를 경계로 이전의 Instruction이 모두 수행되게 한다.
+	 *; (미리 pipeline되어 있던 아래쪽 Instruction들을 모두 flush 시킴.)
+	 *; Context change operation 수행 시 호출되는 경우가 대표적.
+	 *; 현재 Head.S 기준으로는 MSR로 특정 설정을 변경했을 때, 이를
+	 *; 반영하지 않은 Instruction들이 수행되는 것을 막기 위해 barrier를
+	 *; 거는 것으로 보임.
+	 *; */
 	isb
 	/*; Iamroot17A 2020.Oct.17
 	 *; SPsel의 값을 직접 변경하는 것이 아닌, SPSR(변경 가능한 PSTATE)에서
@@ -609,6 +631,10 @@ SYM_INNER_LABEL(init_el1, SYM_L_LOCAL)
 	 *; */
 	/*; ret */
 	msr	elr_el1, lr
+	/*; Iamroot17A 2020.Oct.24
+	 *; init_kernel_el에서 최종적으로 W0에 선택될 Exception Level을
+	 *; 반환해야 한다. (현재 EL1으로 선택되었으므로, BOOT_CPU_MODE_EL1 선택)
+	 *; */
 	mov	w0, #BOOT_CPU_MODE_EL1
 	eret
 
@@ -636,6 +662,13 @@ SYM_INNER_LABEL(init_el2, SYM_L_LOCAL)
 	 */
 	mrs	x0, hcr_el2
 	and	x0, x0, #HCR_E2H
+	/*; Iamroot17A 2020.Oct.24
+	 *; VHE (Virtualization Host Extension) mode에서 특정 CPU가 갇히는
+	 *; 문제를 해결하고자 SCTLR과 SPSR을 다시 설정하는 흐름이 추가됨
+	 *; (정상 흐름은 1f 레이블로 이동)
+	 *; (참고로 이렇게 복잡해진 부분은 Apple M1에서 문제가 확인되었기 때문)
+	 *; >> 관련 commit: 31a32b49b80f79cbb84a9c948c5609c6fc044443
+	 *; */
 	cbz	x0, 1f
 
 	/* Switching to VHE requires a sane SCTLR_EL1 as a start */
@@ -647,23 +680,57 @@ SYM_INNER_LABEL(init_el2, SYM_L_LOCAL)
 	 * to our original caller... This makes sure that we have
 	 * initialised the basic PSTATE state.
 	 */
+	/*; Iamroot17A 2020.Oct.17
+	 *; EL1의 흐름과 같이, SPSR(변경 가능한 PSTATE)에서 EL2의 SP를
+	 *; 사용하도록 설정한다.
+	 *; 현재 Exception Level이 1이라고 생각하여 spsr_el1을 변경
+	 *; */
 	mov	x0, #INIT_PSTATE_EL2
 	msr	spsr_el1, x0
+	/*; Iamroot17A 2020.Oct.17
+	 *; 반환 방식은 EL1에서 본 것과 같이 eret으로 반환함
+	 *; 단, LR로 eret을 하는 것이 아닌, helper function으로 이동함
+	 *; 추후 hvc (hypervisor call)이 있어, 변경된 것으로 보임
+	 *; 원래 돌아가야 할 LR은 __cpu_stick_to_vhe에서 ret할 때 사용됨
+	 *; */
 	adr	x0, __cpu_stick_to_vhe
 	msr	elr_el1, x0
 	eret
 
 1:
+	/*; Iamroot17A 2020.Oct.24
+	 *; 이전 리팩토링을 통해, SCTLR 설정은 EL1이던, EL2이던 동일하게
+	 *; SCTLR_EL1을 변경하는 것이었음. (M1 문제가 없을 경우 정상 흐름)
+	 *; ==v5.9에서는 SCTLR_EL2의 초기값으로 SCTLR_EL2를 변경함==
+	 *; EL1의 경우와 동일하게 SCTLR_EL2에 32-bit mode에 대한 endianness를
+	 *; 설정한다. 또한 똑같이 EL2에 대한 RES1을 설정한다.
+	 *; */
+	/*; mov_q	x0, (SCTLR_EL2_RES1 | ENDIAN_SET_EL2) */
+	/*; msr	sctlr_el2, x0 */
 	mov_q	x0, INIT_SCTLR_EL1_MMU_OFF
 	msr	sctlr_el1, x0
 
+	/*; Iamroot17A 2020.Oct.17
+	 *; 반환 방식은 EL1에서 본 것과 같이 eret으로 반환함
+	 *; 이전에는 현 위치에 SPSR을 변경하는 코드가 있었느나, 리팩토링에서
+	 *; 사라졌으며, 아마 init_el2_state 내부에서 수행되었을 것으로 예상됨
+	 *; 현재 Exception Level이 2라고 생각하여 elr_el2를 lr로 변경
+	 *; */
 	msr	elr_el2, lr
+	/*; Iamroot17A 2020.Oct.24
+	 *; init_kernel_el에서 최종적으로 W0에 선택될 Exception Level을
+	 *; 반환해야 한다. (현재 EL2로 선택되었으므로, BOOT_CPU_MODE_EL2 선택)
+	 *; */
 	mov	w0, #BOOT_CPU_MODE_EL2
 	eret
 
 __cpu_stick_to_vhe:
 	mov	x0, #HVC_VHE_RESTART
 	hvc	#0
+	/*; Iamroot17A 2020.Oct.24
+	 *; init_kernel_el에서 최종적으로 X0에 선택될 Exception Level을
+	 *; 반환해야 한다. (현재 EL2로 선택되었으므로, BOOT_CPU_MODE_EL2 선택)
+	 *; */
 	mov	x0, #BOOT_CPU_MODE_EL2
 	ret
 SYM_FUNC_END(init_kernel_el)
