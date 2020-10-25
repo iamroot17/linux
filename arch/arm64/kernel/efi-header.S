@@ -14,13 +14,20 @@
 	 * This ccmp instruction has no meaningful effect except that
 	 * its opcode forms the magic "MZ" signature required by UEFI.
 	 */
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #2.1
 	 *; UEFI를 사용할 경우, Magic number로 "MZ"를 요구함.
-	 *; 아래 "add x13, x18, #0x16"을 ARM64 machine code로는 0x4D5A0091
-	 *; 근데 왜 ".ascii MZ"나 ".long 0x4D5A0000"가 아니라 어셈블리 명령어로
-	 *; 표현했는지는 모르겠음.
-	 *; (v5.9 기준으로는 `add x13, x18, #0x16` 이었으나 아래와 같이 변경됨)
+	 *; 아래 "ccmp x18, #0, #0xd, pl"은 ARM64 machine code로는 0x4D5A40FA임
+	 *; EFI로 부팅되는 경우에는 아래 "b primary_entry"로 진입되는 것이
+	 *; 아니라, PE header의 정보를 통해 primary_entry로 진입하게 되지만
+	 *; 커널을 EFI 지원으로 빌드했지만 부트로더가 EFI로 부팅하지 않는 경우
+	 *; 하위호환성을 지원하기 위해 아래와 같이 구현한 것으로 보임.
+	 *; (Magic number를 만족하면서, 커널 초기화 과정에 영향을 주지 않는
+	 *;  무의미한 명령어를 배치했다고 생각하면 됨.)
+	 *; (RISC-V에서도 이와 비슷한 방식으로 구현되어 있음. (v5.10-rc1))
+	 *; >> 관련 commit: cb7d2dd5612a77a2597c00fce770a52c921e2ea5
+	 *; ==v5.9 당시 "MZ"를 표현하기 위해 사용하는 명령어가 달랐음==
 	 *; */
+	/*; add	x13, x18, #0x16 */
 	ccmp	x18, #0, #0xd, pl
 #else
 	/*
@@ -34,6 +41,18 @@
 
 	.macro	__EFI_PE_HEADER
 #ifdef CONFIG_EFI
+	/*; Iamroot17A 2020.Oct.17 #2.2
+	 *; UEFI가 동작하는 PE(Portable Executable) 실행파일 형식을 제공하기
+	 *; 위해서는 PE Header 시작 전에 64bytes의 DOS header가 필요함.
+	 *; PE는 Windows 3.1부터 지원되기 시작했는데, 이때 하위호환성
+	 *; (This program cannot be run in DOS mode. 출력)을 위해
+	 *; 기존의 DOS MZ header로 시작하였다.
+	 *; 현대 PE header 해석을 위해서는 "MZ" magic number 검증과,
+	 *; PE의 시작점 offset 확인을 위한 0x3C~0x3F 4byte의 값만 확인한다.
+	 *; 현재 위치와 "L_head" label 간의 offset 차이는 현재 0x3C이다.
+	 *; >> https://en.wikibooks.org/wiki/X86_Disassembly/Windows_Executable_Files 참고
+	 *; >> https://en.wikipedia.org/wiki/Portable_Executable 그림 참고
+	 *; */
 	.set	.Lpe_header_offset, . - .L_head
 	.long	PE_MAGIC
 	.short	IMAGE_FILE_MACHINE_ARM64		// Machine

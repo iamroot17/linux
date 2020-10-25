@@ -57,9 +57,6 @@
 #error PAGE_OFFSET must be at least 2MB aligned
 #endif
 
-/*; Iamroot17A 2020.Oct.17
- *; 여기가 bootloader 이후 커널의 최초 진입 지점이라 볼 수 있다.
- *; */
 /*
  * Kernel startup entry point.
  * ---------------------------
@@ -75,10 +72,20 @@
  * that are useful before the MMU is enabled. The allocations are described
  * in the entry routines.
  */
+/*; Iamroot17A 2020.Oct.17 #1
+ *; 여기가 bootloader에서 올려준 커널 이미지의 최상단 헤더 부분이다.
+ *; __HEAD (.head.text section)는 커널 이미지의 시작 부분에 배치되며, primary
+ *; CPU가 여기 있는 명령어를 통해 stext(현재 primary_entry로 refactor됨)로
+ *; 분기되어야 한다.
+ *; >> /Documentation/arm64/booting.rst 4. Call the kernel image 참고
+ *; */
 	__HEAD
 	/*
 	 * DO NOT MODIFY. Image header expected by Linux boot-loaders.
 	 */
+	/*; Iamroot17A 2020.Oct.17 #2
+	 *; ==v5.9 당시 Machine code가 Magic number인 명령어였으나 리팩토링됨==
+	 *; */
 	efi_signature_nop			// special NOP to identity as PE/COFF executable
 	b	primary_entry			// branch to kernel start, magic
 	.quad	0				// Image load offset from start of RAM, little-endian
@@ -88,24 +95,11 @@
 	.quad	0				// reserved
 	.quad	0				// reserved
 	.ascii	ARM64_IMAGE_MAGIC		// Magic number
-	/*; Iamroot17A 2020.Oct.17
-	 *; UEFI가 동작하는 PE(Portable Executable) 실행파일 형식을 제공하기
-	 *; 위해서는 PE Header 시작 전에 64bytes의 DOS header가 필요함.
-	 *; PE는 Windows 3.1부터 지원되기 시작했는데, 이때 하위호환성
-	 *; (This program cannot be run in DOS mode. 출력)을 위해
-	 *; 기존의 DOS MZ header로 시작하였다.
-	 *; 현대 PE header 해석을 위해서는 "MZ" magic number 검증과,
-	 *; PE의 시작점 offset 확인을 위한 [0x3C, 0x3F] 4byte의 값만 확인한다.
-	 *; "pe_header" label과 "_head" label 간의 offset 차이는 현재 0x3C이다.
-	 *;
-	 *; https://en.wikibooks.org/wiki/X86_Disassembly/Windows_Executable_Files 참고
-	 *; https://en.wikipedia.org/wiki/Portable_Executable 그림 참고
-	 *; */
 	.long	.Lpe_header_offset		// Offset to the PE header.
 
 	__EFI_PE_HEADER
 
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #3
 	 *; 실제 실행 코드는 여기서부터 진행되며, 결론적으로 최초 진입 지점은
 	 *; "primary_entry"라고 볼 수 있다. (기존 "stext"에서 변경됨)
 	 *; */
@@ -123,7 +117,7 @@
 	 *  x24        __primary_switch() .. relocate_kernel()  current RELR displacement
 	 */
 SYM_CODE_START(primary_entry)
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #4
 	 *; bl: Branch with Link, 다음 실행할 명령어의 PC(Program Counter)의
 	 *; 값을 LR(Link Register, ARM64에서는 X30)에 저장하고 argument 위치로
 	 *; 분기하는 명령어, ret명령을 통해 LR에 저장된 위치로 복귀 가능
@@ -157,14 +151,16 @@ SYM_CODE_END(primary_entry)
  * Preserve the arguments passed by the bootloader in x0 .. x3
  */
 SYM_CODE_START_LOCAL(preserve_boot_args)
-	/*; Iamroot17A 2020.Oct.17
-	 *; FDT(dtb;Device Tree Blob)의 물리 주소
+	/*; Iamroot17A 2020.Oct.17 #5
+	 *; primary CPU의 general-purpose register의 요구사항은 아래와 같음.
+	 *; X0: System RAM에서 FDT(dtb;Device Tree Blob)의 물리 주소
+	 *; X1~X3: 0 (Reserved for future use)
 	 *; 추후 변수를 저장할 boot_args의 주소가 X0에 할당되므로 미리 X21로
 	 *; 옮기는 작업을 수행함.
 	 *; */
 	mov	x21, x0				// x21=FDT
 
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #6
 	 *; ADR: PC의 상대 주소를 기반으로 load한다. 왜 상대 주소를 기준으로
 	 *; 하냐면, 리눅스 커널은 PIC(Position Independent Code)로 동작하는데,
 	 *; "Bootloader가 올린 커널의 물리메모리 상의 위치"와
@@ -176,17 +172,20 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	stp	x21, x1, [x0]			// x0 .. x3 at kernel entry
 	stp	x2, x3, [x0, #16]
 
-	/*; Iamroot17A 2020.Oct.17
-	 *; "dmb": Data Memory Barrier, 해당 명령어 전후로 메모리 접근 순서 분리
-	 *; "sy": System Sharable, 시스템 전체
-	 *; dmb는 캐시가 아니라 메모리 버퍼를 flush시킴. 즉 메모리에 대한
-	 *; 확실한 write를 하기 위해 수행함. 메모리에 기록하는 것을 확실하게
-	 *; 보장하기 위해 실행한다고 생각하면 됨.
+	/*; Iamroot17A 2020.Oct.17 #7
+	 *; dmb: Data Memory Barrier, 명령어 경계로 메모리, 캐시 순서 보장
+	 *; sy: System Sharable, 시스템 전체
+	 *; 상단의 boot_args[4]에 X0~X3의 값이 완전히 기록되는 것을 보장하기
+	 *; 위해 호출함. (아래 __inval_dcache_area에 의한 stale cache 현상을
+	 *; 방지하기 위한 barrier)
+	 *; >> MMU가 꺼진 상태에서 barrier 사용에 관한 질문
+	 *; >> http://www.iamroot.org/xe/index.php?document_srl=213162 참고
+	 *; >> https://lore.kernel.org/kernelnewbies/CAEcHRToEjECSNpdocLwtd6M1vC2qEhBa2pziCV5g75d6h86kFQ@mail.gmail.com/T/#m390fd945500591ec444028da325b0d1481175be3
 	 *; */
 	dmb	sy				// needed before dc ivac with
 						// MMU off
 
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #8
 	 *; "dcache_inval_poc" 호출 시, 기본 인자로 X0, X1을 사용한다.
 	 *; "X0": invalidate할 D-cache의 시작 주소
 	 *; "X1": invalidate할 D-cache의 끝 주소
@@ -199,17 +198,17 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	 *; 이미 X0의 주소는 boot_args를 가리키고 있으므로, X1만 수정한다.
 	 *; */
 	add	x1, x0, #0x20			// 4 x 8 bytes
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #9
 	 *; Boot시의 CPU 조건이 d-cache가 꺼져있는 상태임에도 해당 영역을
 	 *; 비우는 이유는 추후 MMU가 켜진 뒤 Clean & invalidate 시 잘못된
 	 *; 데이터가 반영되는 것을 막기 위함이다.
 	 *; */
 	b	dcache_inval_poc		// tail call
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #10
 	 *; 원래 해당 Procedure가 종료되고 원래 caller(primary_entry)의 위치로
 	 *; 돌아가려면 "ret" instruction을 사용해야 한다.
 	 *; 게다가 현재 call stack을 사용하고 있지 않으므로, return address는
-	 *; 다른 변수에 임시 저장되어야 한다. 하지만 "__inval_dcache_area"
+	 *; 다른 변수에 임시 저장되어야 한다. 하지만 "dcache_inval_poc"
 	 *; 내부에서 "ret"를 호출하므로 여기에선 생략했다.
 	 *; 만약 tail call 최적화가 없으면 이런 식으로 구성되어야 한다.
 	 *;	add	x1, x0, #0x20
@@ -620,18 +619,19 @@ EXPORT_SYMBOL(kimage_vaddr)
  * Returns either BOOT_CPU_MODE_EL1 or BOOT_CPU_MODE_EL2 in w0 if
  * booted in EL1 or EL2 respectively.
  */
-/*; Iamroot17A 2020.Oct.17
+/*; Iamroot17A 2020.Oct.17 #11
  *; ==v5.9 당시 el2_setup이었으나, init_kernel_el로 리팩토링됨==
  *; */
 /*; SYM_FUNC_START(el2_setup) */
 SYM_FUNC_START(init_kernel_el)
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #12
 	 *; 현재 Exception Level을 가져와서, 해당 값이 EL2일 경우 EL2에 맞게
 	 *; 코드 실행, 아닐 경우 EL1에 맞게 수행하고 현재 procedure 종료.
 	 *; */
 	mrs	x0, CurrentEL
 	cmp	x0, #CurrentEL_EL2
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #13
+	 *; 만약 가져온 CurrentEL이 EL2인 경우, init_el2로 이동한다.
 	 *; ==v5.9 당시 SYM_INNER_LABEL 방식을 사용하지 않았음==
 	 *; 이전에는 EL2 처리에 대한 label은 1f였음 */
 	b.eq	init_el2
@@ -662,7 +662,7 @@ SYM_INNER_LABEL(init_el1, SYM_L_LOCAL)
 	 *; 거는 것으로 보임.
 	 *; */
 	isb
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #14
 	 *; SPsel의 값을 직접 변경하는 것이 아닌, SPSR(변경 가능한 PSTATE)에서
 	 *; EL1의 SP를 사용하도록 설정한다.
 	 *; PSTATE의 일부 비트 상태가 보장되지 않으므로, 안정적으로 초기화함
@@ -677,7 +677,7 @@ SYM_INNER_LABEL(init_el1, SYM_L_LOCAL)
 	/*; msr	SPsel, #1			// We want to use SP_EL{1,2}*/
 	mov_q	x0, INIT_PSTATE_EL1
 	msr	spsr_el1, x0
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #15
 	 *; 이후 설정된 SPSR이 PSTATE에 반영되도록 eret으로 반환함
 	 *; ELR: Exception Link Register, exception이 끝나고 돌아갈 address
 	 *; ==v5.9 당시 SPsel을 직접 수정, ret으로 반환==
@@ -691,7 +691,7 @@ SYM_INNER_LABEL(init_el1, SYM_L_LOCAL)
 	mov	w0, #BOOT_CPU_MODE_EL1
 	eret
 
-/*; Iamroot17A 2020.Oct.17
+/*; Iamroot17A 2020.Oct.17 #13.1
  *; 본 분석에서는 EL2 (Hypervisor mode)로 동작하는 흐름은 분석하지
  *; 않는다. 단, EL1에서 처리하는 코드와 같은 내용이 어디에서 처리되는지
  *; 유사한 흐름을 확인하기 위한 분석은 수행한다.
@@ -733,14 +733,14 @@ SYM_INNER_LABEL(init_el2, SYM_L_LOCAL)
 	 * to our original caller... This makes sure that we have
 	 * initialised the basic PSTATE state.
 	 */
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #14.2
 	 *; EL1의 흐름과 같이, SPSR(변경 가능한 PSTATE)에서 EL2의 SP를
 	 *; 사용하도록 설정한다.
 	 *; 현재 Exception Level이 1이라고 생각하여 spsr_el1을 변경
 	 *; */
 	mov	x0, #INIT_PSTATE_EL2
 	msr	spsr_el1, x0
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #15.2
 	 *; 반환 방식은 EL1에서 본 것과 같이 eret으로 반환함
 	 *; 단, LR로 eret을 하는 것이 아닌, helper function으로 이동함
 	 *; 추후 hvc (hypervisor call)이 있어, 변경된 것으로 보임
@@ -763,7 +763,7 @@ SYM_INNER_LABEL(init_el2, SYM_L_LOCAL)
 	mov_q	x0, INIT_SCTLR_EL1_MMU_OFF
 	msr	sctlr_el1, x0
 
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #15.1
 	 *; 반환 방식은 EL1에서 본 것과 같이 eret으로 반환함
 	 *; 이전에는 현 위치에 SPSR을 변경하는 코드가 있었느나, 리팩토링에서
 	 *; 사라졌으며, 아마 init_el2_state 내부에서 수행되었을 것으로 예상됨

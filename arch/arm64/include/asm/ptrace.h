@@ -16,7 +16,7 @@
 #define CurrentEL_EL1		(1 << 2)
 #define CurrentEL_EL2		(2 << 2)
 
-/*; Iamroot17A 2020.Oct.17
+/*; Iamroot17A 2020.Oct.17 #14.1
  *; DAIF를 마스킹하며, 현재 exception level의 Stack Pointer를 사용하게 한다.
  *; EL0t: EL0에서 SP_EL0를 사용 (User level, User stack)
  *; EL1t: EL1에서 SP_EL0를 사용 (Kernel level, User stack)

@@ -308,13 +308,13 @@ alternative_endif
 	.macro	read_ctr, reg
 #ifndef __KVM_NVHE_HYPERVISOR__
 alternative_if_not ARM64_MISMATCHED_CACHE_TYPE
-	/*; Iamroot 17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #9.2.1
 	 *; Cache type이 맞는 경우 "CTR_EL0"의 값을 가져온다.
 	 *; */
 	mrs	\reg, ctr_el0			// read CTR
 	nop
 alternative_else
-	/*; Iamroot 17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #9.2.2
 	 *; ARM64_MISMATCHED_CACHE_TYPE일 경우, Feature Register변수에서
 	 *; ctr_el0의 값을 가져온다.
 	 *; */
@@ -350,13 +350,13 @@ alternative_cb_end
  */
 	.macro	dcache_line_size, reg, tmp
 	read_ctr	\tmp
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #9.2.3
 	 *; CTR_EL0의 DminLine 값을 추출한다.
 	 *; DminLine은 cache line 크기에 해당하는 WORD 값을 Log2한 값이다.
 	 *; */
 	ubfm		\tmp, \tmp, #16, #19	// cache line size encoding
 	mov		\reg, #4		// bytes per word
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #9.2.4
 	 *; DminLine은 log2를 취한 값이므로, Left shift를 하면 원본 값이 나온다.
 	 *; 여기서 byte 단위의 cache size를 가져오므로, 시작 숫자를 word 당
 	 *; byte 값인 4byte로 설정한다.
