@@ -513,7 +513,7 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 	 *         between 2 and 4 movz/movk instructions (depending on the
 	 *         magnitude and sign of the operand)
 	 */
-	/*; Iamroot17A 2020.Oct.24
+	/*; Iamroot17A 2020.Oct.24 #2
 	 *;
 	 *; AArch64 Relocation 표현 별 의미
 	 *; abs: absolute
