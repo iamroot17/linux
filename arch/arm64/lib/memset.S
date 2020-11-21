@@ -44,6 +44,11 @@ tmp3		.req	x9
 
 	.weak memset
 SYM_FUNC_START_ALIAS(__memset)
+/*; Iamroot17A 2020.Nov.21 #6.1
+ *;
+ *; __pi_memset은 아래 SYM_FUNC_START_PI() 매크로를 통해 생성된 심볼이다.
+ *; >> arch/arm64/include/asm/linkage.h 의 SYM_FUNC_START_PI() 정의 참고
+ *; */
 SYM_FUNC_START_PI(memset)
 	mov	dst, dstin	/* Preserve return value.  */
 	and	A_lw, val, #255

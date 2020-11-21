@@ -592,24 +592,80 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	__ptrauth_keys_init_cpu	x5, x6, x7, x8
 #endif
 
+	/*; Iamroot17A 2020.Nov.21 #1
+	 *;
+	 *; Vector table의 주소를 VBAR_EL1에 등록한다.
+	 *; VBAR_EL1: Vector Base Address Register
+	 *; */
 	adr_l	x8, vectors			// load VBAR_EL1 with virtual
 	msr	vbar_el1, x8			// vector table address
 	isb
 
+	/*; Iamroot17A 2020.Nov.21 #2
+	 *;
+	 *; ARM64 Procedure Call Standard에 맞춰 stack frame을 생성한다.
+	 *; X30(Link Register)와 X29(Frame Pointer)의 값을 설정한다.
+	 *; >> 관련 commit: 60699ba18b69ff210ed0304bc23f6c9d11d27a72
+	 *; */
 	stp	xzr, x30, [sp, #-16]!
 	mov	x29, sp
 
+	/*; Iamroot17A 2020.Nov.21 #3
+	 *;
+	 *; Shadow Call Stack은 Stack buffer overflow 등의 공격에서 return
+	 *; address를 보호하기 위해 사용되는 기법이다.
+	 *; 해당 기법의 원리를 간단하게 설명하면, 기존의 call stack을 사용하는
+	 *; 방식에서 추가적으로 shadow call stack 영역을 추가하여, call stack
+	 *; 연산시 접근 가능한 address 등을 입력하여 Stack buffer overflow를
+	 *; 감지하거나 예방하는 등으로 활용된다.
+	 *; >> https://en.wikipedia.org/wiki/Shadow_stack 참고
+	 *; >> https://clang.llvm.org/docs/ShadowCallStack.html 참고
+	 *; (defconfig에서 n이며, compiler가 지원해야하므로 자세한 분석 생략)
+	 *; */
 #ifdef CONFIG_SHADOW_CALL_STACK
 	adr_l	scs_sp, init_shadow_call_stack	// Set shadow call stack
 #endif
 
+	/*; Iamroot17A 2020.Nov.21 #4
+	 *;
+	 *; X21(preserve_boot_args()에서 보관한 FDT의 물리 주소)을
+	 *; __fdt_pointer에 보관한다.
+	 *; >> arch/arm64/kernel/setup.c 의 __fdt_pointer 선언 참고
+	 *; */
 	str_l	x21, __fdt_pointer, x5		// Save FDT pointer
 
+	/*; Iamroot17A 2020.Nov.21 #5
+	 *;
+	 *; 커널의 가상주소 오프셋을 계산한다.
+	 *; (커널의 시작 가상 주소 - 커널의 시작 물리 주소)
+	 *; X0는 __primary_switched()로 진입하기 전에 이미 __PHYS_OFFSET 값을
+	 *; 설정한 상태다.
+	 *; (__primary_switch에서 변경했으며 KASLR 적용 전/후 모두 동일함)
+	 *; >> Iamroot17A 2020.Nov.21 #5.1 참고 (커널의 시작 가상 주소)
+	 *; >> Iamroot17A 2020.Oct.24 #6.1 참고 (커널의 시작 물리 주소)
+	 *;
+	 *; __PHYS_OFFSET과 kimage_vaddr은 compile time에서의 정의가 같다.
+	 *; 다만 __PHYS_OFFSET을 읽어올 때 ADRP를 통해 읽어오기 때문에 X0는
+	 *; 물리 주소를 나타내게 되는 것이다.
+	 *; */
 	ldr_l	x4, kimage_vaddr		// Save the offset between
 	sub	x4, x4, x0			// the kernel virtual and
 	str_l	x4, kimage_voffset, x5		// physical mappings
 
 	// Clear BSS
+	/*; Iamroot17A 2020.Nov.21 #6
+	 *;
+	 *; 기존에는 BSS 영역 초기화 시 반복문을 사용했는데, 이제는 memset()을
+	 *; 사용하고 있다. __pi_memset()은 Position Independent한 memset()으로,
+	 *; ARM64 어셈블리로 구현되어있다.
+	 *; X0: source, 초기화할 메모리 시작 주소
+	 *; X1: character, 초기화할 값
+	 *; X2: number, 초기화할 byte의 갯수
+	 *; >> 관련 commit: 2a803c4db615d85126c5c7afd5849a3cfde71422
+	 *;
+	 *; __pi_memset() 원본 정의가 없는 이유는 매크로를 통해 심볼이 생성됨
+	 *; >> arch/arm64/lib/memset.S 참고
+	 *; */
 	adr_l	x0, __bss_start
 	mov	x1, xzr
 	adr_l	x2, __bss_stop
@@ -638,6 +694,14 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 SYM_FUNC_END(__primary_switched)
 
 	.pushsection ".rodata", "a"
+/*; Iamroot17A 2020.Nov.21 #5.1
+ *;
+ *; _text의 값은 .head.text의 시작 주소이며, 커널의 시작 가상 주소를 나타낸다.
+ *; TEXT_OFFSET은 이전에 분석하였듯 현재 큰 의미를 갖지 못하며,
+ *; 커널의 가상 주소 계산 과정에서 서로 상쇄된다.
+ *; >> arch/arm64/kernel/vmlinux.lds.S 내 _text 정의 참고
+ *; >> Iamroot17A 2020.Oct.24 #6.1 참고 (TEXT_OFFSET 히스토리)
+ *; */
 SYM_DATA_START(kimage_vaddr)
 	.quad		_text - TEXT_OFFSET
 SYM_DATA_END(kimage_vaddr)
