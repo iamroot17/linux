@@ -72,9 +72,19 @@ arch_get_random_seed_long_early(unsigned long *v)
 {
 	WARN_ON(system_state != SYSTEM_BOOTING);
 
+	/*; Iamroot17A 2020.Nov.21 #8.5.1
+	 *;
+	 *; AA64ISAR0_EL1.RNDR을 확인하여 해당 CPU가 하드웨어적으로 난수를
+	 *; 생성할 수 있는지 확인한다.
+	 *; */
 	if (!__early_cpu_has_rndr())
 		return false;
 
+	/*; Iamroot17A 2020.Nov.21 #8.5.2
+	 *;
+	 *; 하드웨어적 난수 생성이 지원되는 경우, RNDR 레지스터를 통해
+	 *; 난수를 받는다.
+	 *; */
 	return __arm64_rndr(v);
 }
 #define arch_get_random_seed_long_early arch_get_random_seed_long_early

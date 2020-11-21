@@ -677,16 +677,55 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	bl	kasan_early_init
 #endif
 #ifdef CONFIG_RANDOMIZE_BASE
+	/*; Iamroot17A 2020.Nov.21 #7
+	 *;
+	 *; 커널 이미지 재배치를 위한 offset이 KASLR이 적용된 상태인지 확인한다.
+	 *; 1) KASLR이 아직 적용되지 않았다면, X23의 값은 bootloader가 올려준
+	 *;    커널 이미지 물리 주소의 하위 비트만 살려둔 상태기 때문에
+	 *;    MIN_KIMG_ALIGN의 상위 비트들은 모두 0일 것이다.
+	 *;    즉 label 0:로 branch하지 못하고, kaslr_early_init 관련 흐름으로
+	 *;    실행되게 된다. (ret를 통해 다시 __primary_switch()로 복귀해서,
+	 *;    KASLR을 적용한 상태로 init_pg_dir을 다시 생성하고 relocation하여
+	 *;    __primary_switched가 재호출되어 이 지점으로 돌아오게 된다.
+	 *; 2) 만약 KASLR이 적용된 상태라면, 위와 다르게 상위 비트가 모두 1로
+	 *;    변경되는 것으로 보이며, label 0:로 branch하여 start_kernel()로
+	 *;    진입하는 흐름을 수행한다.
+	 *; >> Iamroot17A 2020.Oct.24 #6 참고 (X23 초기 설정 부분)
+	 *; */
 	tst	x23, ~(MIN_KIMG_ALIGN - 1)	// already running randomized?
 	b.ne	0f
+	/*; Iamroot17A 2020.Nov.21 #8
+	 *;
+	 *; kaslr_early_init을 호출한다. 해당 함수의 인자로 FDT의 주소를
+	 *; 사용하므로, ARM64 Procedure Call Standard에 따라 해당 인자를 X0에
+	 *; 넣고 호출한다.
+	 *; */
 	mov	x0, x21				// pass FDT address in x0
 	bl	kaslr_early_init		// parse FDT for KASLR options
+	/*; Iamroot17A 2020.Nov.21 #9
+	 *;
+	 *; kaslr_early_init()에서 KASLR 적용 여부가 취소된 경우, 커널 이미지
+	 *; 재배치를 위한 offset이 무작위로 생성되지 않았으며, init_pg_dir
+	 *; 재생성 및 relocation이 무의미해진다. 이 경우 그냥 label 0:로
+	 *; branch하여 start_kernel()로 진입한다.
+	 *; */
 	cbz	x0, 0f				// KASLR disabled? just proceed
+	/*; Iamroot17A 2020.Nov.21 #10
+	 *;
+	 *; kaslr_early_init에서 return한 무작위 offset 값으로 X23을 변경하고
+	 *; KASLR을 적용하기 위해 return한다. (__primary_switch()서 마저 수행함)
+	 *; */
 	orr	x23, x23, x0			// record KASLR offset
 	ldp	x29, x30, [sp], #16		// we must enable KASLR, return
 	ret					// to __primary_switch()
 0:
 #endif
+	/*; Iamroot17A 2020.Nov.21 #11
+	 *;
+	 *; ARM64 Procedure Call Standard에 맞춰 LR과 FP를 설정한다.
+	 *; start_kernel() 기준으로 caller가 없는 것 처럼 설정해야 하기 때문에
+	 *; 모두 0으로 설정된다.
+	 *; */
 	add	sp, sp, #16
 	mov	x29, #0
 	mov	x30, #0
@@ -1302,11 +1341,24 @@ SYM_FUNC_START_LOCAL(__primary_switch)
 	 * to take into account by discarding the current kernel mapping and
 	 * creating a new one.
 	 */
+	/*; Iamroot17A 2020.Nov.21 #10.1
+	 *;
+	 *; KASLR을 적용하기 위해서 다시 return하면 여기부터 실행된다.
+	 *; 먼저 MMU를 다시 비활성화하고 다시 페이지 테이블을 생성한다.
+	 *; MMU 비활성화 이후 다시 물리 주소 기반으로 수행되도록
+	 *; Instruction Barrier를 수행한다.
+	 *; (per_disable_mmu_workaround도 Instruction Barrier를 수행하지만
+	 *;  특수한 경우에만 필요한 것으로 보임.)
+	 *; */
 	pre_disable_mmu_workaround
 	msr	sctlr_el1, x20			// disable the MMU
 	isb
 	bl	__create_page_tables		// recreate kernel mapping
 
+	/*; Iamroot17A 2020.Nov.21 #10.2
+	 *;
+	 *; MMU 비활성화 이전에 생성되었던 TLB entry들을 모두 invalidate한다.
+	 *; */
 	tlbi	vmalle1				// Remove any stale TLB entries
 	dsb	nsh
 
@@ -1317,6 +1369,12 @@ SYM_FUNC_START_LOCAL(__primary_switch)
 	isb
 
 	bl	__relocate_kernel
+	/*; Iamroot17A 2020.Nov.21 #10.3
+	 *;
+	 *; 다시 relocate하고 __primary_switched()를 호출한다.
+	 *; 이전과 달리 KASLR이 적용되어있으므로 다시 복귀하지 않고
+	 *; start_kernel()로 진입하게 될 것이다.
+	 *; */
 #endif
 #endif
 	ldr	x8, =__primary_switched
