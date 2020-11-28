@@ -39,9 +39,22 @@ atomic_read_acquire(const atomic_t *v)
 #define atomic_read_acquire atomic_read_acquire
 #endif
 
+/*; Iamroot17A 2020.Nov.28 #10.3
+ *;
+ *; Architecture dependent하게 구현된 atomic_set
+ *; 아래 arch_atomic_set은 각 arch/$ARCH/include/asm/atomic.h에 정의된
+ *; atomic_set을 호출하게 된다. (대부분 결과적으로 WRITE_ONCE를 사용한다.)
+ *; Atomic load/store를 위한 instruction이 지원되는데 왜 WRITE_ONCE를
+ *; 사용하는지는 확인해봐야 할 것 같음.
+ *; */
 static __always_inline void
 atomic_set(atomic_t *v, int i)
 {
+	/*; Iamroot17A 2020.Nov.28 #10.4
+	 *;
+	 *; Kernel Sanitizer 사용시 검증하는 코드가 수행됨.
+	 *; (Kernel Address Sanitizer, Kernel Concurrency Sanitizer)
+	 *; */
 	instrument_atomic_write(v, sizeof(*v));
 	arch_atomic_set(v, i);
 }

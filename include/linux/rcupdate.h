@@ -334,6 +334,13 @@ static inline void rcu_preempt_sleep_check(void) { }
  */
 
 #ifdef __CHECKER__
+/*; Iamroot17A 2020.Nov.28 #16.1
+ *;
+ *; rcu_check_sparse는 실제 코드상의 기능보다는 정적 분석 과정에서 오류를
+ *; 확인하는 것으로 보임. (type과 space를 기준으로 reference 가능 여부에 대한
+ *; 조건을 확인할 뿐, 해당 논리 식의 결과를 void로 casting하여 비교 결과를
+ *; 버리는 것을 확인할 수 있다.)
+ *; */
 #define rcu_check_sparse(p, space) \
 	((void)(((typeof(*p) space *)p) == p))
 #else /* #ifdef __CHECKER__ */

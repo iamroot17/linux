@@ -1905,10 +1905,19 @@ static void init_cgroup_housekeeping(struct cgroup *cgrp)
 	struct cgroup_subsys *ss;
 	int ssid;
 
+	/*; Iamroot17A 2020.Nov.28 #11
+	 *;
+	 *; cgroup은 tree처럼 다른 cgroup을 관리하는 것으로 보임.
+	 *; 각 node간의 이동에 대한 연결은 list를 사용하는 것으로 보임.
+	 *; */
 	INIT_LIST_HEAD(&cgrp->self.sibling);
 	INIT_LIST_HEAD(&cgrp->self.children);
 	INIT_LIST_HEAD(&cgrp->cset_links);
 	INIT_LIST_HEAD(&cgrp->pidlists);
+	/*; Iamroot17A 2020.Nov.28 #12
+	 *;
+	 *; mutex_init 및 struct mutex 자료구조 분석
+	 *; */
 	mutex_init(&cgrp->pidlist_mutex);
 	cgrp->self.cgroup = cgrp;
 	cgrp->self.flags |= CSS_ONLINE;
@@ -1916,8 +1925,18 @@ static void init_cgroup_housekeeping(struct cgroup *cgrp)
 	cgrp->max_descendants = INT_MAX;
 	cgrp->max_depth = INT_MAX;
 	INIT_LIST_HEAD(&cgrp->rstat_css_list);
+	/*; Iamroot17A 2020.Nov.28 #13
+	 *;
+	 *; prev_cputime: user time, sytstem time 실행 시간을 snapshot 단위로
+	 *; (scheduling 기준) 저장하는 구조체
+	 *; */
 	prev_cputime_init(&cgrp->prev_cputime);
 
+	/*; Iamroot17A 2020.Nov.28 #14
+	 *;
+	 *; struct cgroup의 e_csets는 배열로 선언되어 있으므로
+	 *; 해당 배열을 순회하기 위해 for_each_subsys 매크로를 사용한다.
+	 *; */
 	for_each_subsys(ss, ssid)
 		INIT_LIST_HEAD(&cgrp->e_csets[ssid]);
 
@@ -1944,6 +1963,14 @@ void init_cgroup_root(struct cgroup_fs_context *ctx)
 	init_cgroup_housekeeping(cgrp);
 
 	root->flags = ctx->flags;
+	/*; Iamroot17A 2020.Nov.28 #15
+	 *;
+	 *; cgroup_early_init()에서 호출한 init_cgroup_root의 parameter는
+	 *; .init.data 영역에 할당된 변수로 아마 모든 멤버 값이 0으로 예상된다.
+	 *; 	static struct cgroup_fs_context __initdata ctx;
+	 *; 아래 if문이 모두 false가 되지 않을까 예상됨.
+	 *; 추후 cgroup의 namespace별로 사용할 때 아래 코드가 수행될 것으로 예상
+	 *; */
 	if (ctx->release_agent)
 		strscpy(root->release_agent_path, ctx->release_agent, PATH_MAX);
 	if (ctx->name)
@@ -5677,6 +5704,10 @@ int __init cgroup_init_early(void)
 	init_cgroup_root(&ctx);
 	cgrp_dfl_root.cgrp.self.flags |= CSS_NO_REF;
 
+	/*; Iamroot17A 2020.Nov.28 #16
+	 *;
+	 *; RCU_INIT_POINTER 분석
+	 *; */
 	RCU_INIT_POINTER(init_task.cgroups, &init_css_set);
 
 	for_each_subsys(ss, i) {

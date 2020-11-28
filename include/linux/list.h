@@ -36,6 +36,19 @@ static inline void INIT_LIST_HEAD(struct list_head *list)
 	 *;
 	 *; list->next의 값을 바꾸는 부분만 WRITE_ONCE 처리되어있다.
 	 *; >> 관련 commit: 2f073848c3cc8aff2655ab7c46d8c0de90cf4e50
+	 *;
+	 *; 왜 list->next만 WRITE_ONCE처리 했는가?
+	 *; WRITE_ONCE는 해당 변수에 write하는 작업을 atomic하게 하려고 사용하는
+	 *; macro이다. 내부적으로 volatile을 사용하는데 이것이 compiler 단에서
+	 *; Memory barrier와 유사한 역할을 수행할 것으로 예상됨.
+	 *; >> https://stackoverflow.com/questions/34988277 참고
+	 *; >> https://gcc.gnu.org/onlinedocs/gcc/Volatiles.html 참고
+	 *;
+	 *; 해당 가설에 가능성을 보충하자면, inline 함수의 경우 function call에
+	 *; 의한 overhead(Stack frame push/pop, branch 등)를 줄여주는 것은
+	 *; 당연하며, 추가적으로 함수 호출과 관련된 인자 사이의 최적화도 진행됨.
+	 *; (ex. Parameter validation을 dead code 취급해서 삭제하는 식)
+	 *; >> https://en.wikipedia.org/wiki/Inline_expansion#Benefits 참고
 	 *; */
 	WRITE_ONCE(list->next, list);
 	list->prev = list;
