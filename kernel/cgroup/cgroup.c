@@ -151,9 +151,29 @@ static struct static_key_true *cgroup_subsys_on_dfl_key[] = {
 };
 #undef SUBSYS
 
+/*; Iamroot17A 2020.Nov.28 #8.2
+ *;
+ *; DEFINE_PER_CPU는 각 CPU마다 사용하는 변수에 대해 선언하기 위해 사용된다.
+ *; CONFIG_SMP인 경우(defconfig에서 y) .data..percpu section에 할당되게 한다.
+ *; 코드 및 vmlinux 확인 결과 CPU 갯수 만큼 (CONFIG_NR_CPUS, defconfig에서 256)
+ *; 미리 할당되어 있는 것이 아님. 추후 동적으로 할당되는 것으로 보임.
+ *;
+ *; CONFIG_NR_CPUS는 커널이 빌드될 때 지원할 수 있는 최대 CPU의 갯수를 뜻하며
+ *; 실제 boot 과정에서 CPU 갯수는 FDT(head.S에서 저장한 boot args)에서 확인함.
+ *; (FDT의 갯수가 CONFIG_NR_CPUS 초과시 panic이 발생할 것으로 예상됨)
+ *; 현재까지 코드 분석과정에서는 CPU 갯수에 따라 변수 영역을 할당받는 부분이
+ *; 확인되지 않았으므로 추후 다시 확인해 봐야 할 것 같음.
+ *; TODO: PER_CPU 관련 변수 할당 & 접근
+ *; */
 static DEFINE_PER_CPU(struct cgroup_rstat_cpu, cgrp_dfl_root_rstat_cpu);
 
 /* the default hierarchy */
+/*; Iamroot17A 2020.Nov.28 #8.1
+ *;
+ *; cgrp_dfl_root_rstat_cpu는 DEFINE_PER_CPU로 선언되어있는데, 여기에서
+ *; cgrp_dfl_root.cgrp.rstat_cpu를 해당 변수의 주소로 초기화하고 있다.
+ *; 아마 해당 주소는 CPU#0의 주소로 초기화 될 것으로 예상됨.
+ *; */
 struct cgroup_root cgrp_dfl_root = { .cgrp.rstat_cpu = &cgrp_dfl_root_rstat_cpu };
 EXPORT_SYMBOL_GPL(cgrp_dfl_root);
 
@@ -1910,7 +1930,15 @@ void init_cgroup_root(struct cgroup_fs_context *ctx)
 	struct cgroup_root *root = ctx->root;
 	struct cgroup *cgrp = &root->cgrp;
 
+	/*; Iamroot17A 2020.Nov.28 #9
+	 *;
+	 *; Kernel 내부에서 사용하는 자료구조인 list의 초기화 함수 분석
+	 *; */
 	INIT_LIST_HEAD(&root->root_list);
+	/*; Iamroot17A 2020.Nov.28 #10
+	 *;
+	 *; atomic_set 함수 분석 (architecture dependent/independent 구현)
+	 *; */
 	atomic_set(&root->nr_cgrps, 1);
 	cgrp->root = root;
 	init_cgroup_housekeeping(cgrp);
@@ -5630,12 +5658,21 @@ static void __init cgroup_init_subsys(struct cgroup_subsys *ss, bool early)
  * Initialize cgroups at system boot, and initialize any
  * subsystems that request early init.
  */
+/*; Iamroot17A 2020.Nov.28 #7
+ *;
+ *; cgroup: 커널의 리소스 관리를 해주는 기능
+ *; >> https://en.wikipedia.org/wiki/Cgroups 참고
+ *; */
 int __init cgroup_init_early(void)
 {
 	static struct cgroup_fs_context __initdata ctx;
 	struct cgroup_subsys *ss;
 	int i;
 
+	/*; Iamroot17A 2020.Nov.28 #8
+	 *;
+	 *; ctx.root 값으로 설정하는 cgrp_dfl_root 분석
+	 *; */
 	ctx.root = &cgrp_dfl_root;
 	init_cgroup_root(&ctx);
 	cgrp_dfl_root.cgrp.self.flags |= CSS_NO_REF;

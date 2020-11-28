@@ -190,11 +190,21 @@ is_midr_in_range_list(u32 midr, struct midr_range const *ranges)
  */
 static inline u32 __attribute_const__ read_cpuid_id(void)
 {
+	/*; Iamroot17A 2020.Nov.28 #5.1
+	 *;
+	 *; Main ID Register, 제조사 정보 등이 포함된 SYSREG
+	 *; >> https://developer.arm.com/docs/ddi0595/h/aarch64-system-registers/midr_el1
+	 *; */
 	return read_cpuid(MIDR_EL1);
 }
 
 static inline u64 __attribute_const__ read_cpuid_mpidr(void)
 {
+	/*; Iamroot17A 2020.Nov.28 #5.2
+	 *;
+	 *; MultiProcessor Affinity register, CPU 자체 정보에 대한 SYSREG
+	 *; >> https://developer.arm.com/docs/ddi0595/d/aarch64-system-registers/mpidr_el1
+	 *; */
 	return read_cpuid(MPIDR_EL1);
 }
 

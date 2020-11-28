@@ -23,6 +23,12 @@ static inline void *task_stack_page(const struct task_struct *task)
 
 #define setup_thread_stack(new,old)	do { } while(0)
 
+/*; Iamroot17A 2020.Nov.28 #2.1
+ *;
+ *; (CONFIG_THREAD_INFO_IN_STACK=y인 경우 사용됨)
+ *; 만약 struct thread_info가 struct task_struct의 멤버인 경우
+ *; struct task_struct의 stack을 반환한다. (defconfig에서 y)
+ *; */
 static inline unsigned long *end_of_stack(const struct task_struct *task)
 {
 	return task->stack;
@@ -47,6 +53,11 @@ static inline void setup_thread_stack(struct task_struct *p, struct task_struct 
  * When the stack grows up, this is the highest address.
  * Beyond that position, we corrupt data on the next page.
  */
+/*; Iamroot17A 2020.Nov.28 #2.2
+ *;
+ *; 만약 struct thread_info가 struct task_struct의 멤버가 아닌 경우
+ *; union thread_union을 이용하여 해당 task_struct의 stack 주소를 알아낸다.
+ *; */
 static inline unsigned long *end_of_stack(struct task_struct *p)
 {
 #ifdef CONFIG_STACK_GROWSUP

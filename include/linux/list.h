@@ -32,6 +32,11 @@
  */
 static inline void INIT_LIST_HEAD(struct list_head *list)
 {
+	/*; Iamroot17A 2020.Nov.28 #9.1
+	 *;
+	 *; list->next의 값을 바꾸는 부분만 WRITE_ONCE 처리되어있다.
+	 *; >> 관련 commit: 2f073848c3cc8aff2655ab7c46d8c0de90cf4e50
+	 *; */
 	WRITE_ONCE(list->next, list);
 	list->prev = list;
 }

@@ -1271,6 +1271,11 @@ void __init debug_objects_early_init(void)
 {
 	int i;
 
+	/*; Iamroot17A 2020.Nov.28 #6
+	 *;
+	 *; debug시 spin_lock과 hash_list를 사용하는 것으로 보임.
+	 *; 관련 변수 초기화 작업
+	 *; */
 	for (i = 0; i < ODEBUG_HASH_SIZE; i++)
 		raw_spin_lock_init(&obj_hash[i].lock);
 

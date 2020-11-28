@@ -45,6 +45,12 @@ atomic_set(atomic_t *v, int i)
 	instrument_atomic_write(v, sizeof(*v));
 	arch_atomic_set(v, i);
 }
+/*; Iamroot17A 2020.Nov.28 #10.2
+ *;
+ *; macro define을 위에서 선언한 inline 함수로 하고 있음. 예상되는 이유는 같은
+ *; 이름의 macro를 쓰는 header를 동시 include했을 때 생길 문제를 방지하기 위해
+ *; preprocessor 단계에서 미리 inline 함수 호출로 치환하는 것으로 보임.
+ *; */
 #define atomic_set atomic_set
 
 #if defined(arch_atomic_set_release)

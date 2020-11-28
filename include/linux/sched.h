@@ -634,6 +634,11 @@ struct task_struct {
 	 * For reasons of header soup (see current_thread_info()), this
 	 * must be the first element of task_struct.
 	 */
+	/*; Iamroot17A 2020.Nov.28 #1.1
+	 *;
+	 *; task_struct 안에는 thread_info를 포함하고 있으며 (defconfig에서 y)
+	 *; 해당 구조체는 architecture 종속적이다.
+	 *; */
 	struct thread_info		thread_info;
 #endif
 	/* -1 unrunnable, 0 runnable, >0 stopped: */
@@ -643,6 +648,12 @@ struct task_struct {
 	 * This begins the randomizable portion of task_struct. Only
 	 * scheduling-critical items should be added above here.
 	 */
+	/*; Iamroot17A 2020.Nov.28 #1.2
+	 *;
+	 *; 아래 항목들은 필드 순서가 무작위로 배치된다.
+	 *; (randomized_struct_fields_start ~ randomized_struct_fields_end)
+	 *; (아래 영역을 struct로 묶고 __attribute__((randomize_layout)) 적용)
+	 *; */
 	randomized_struct_fields_start
 
 	void				*stack;

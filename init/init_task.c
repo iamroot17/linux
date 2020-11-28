@@ -65,6 +65,13 @@ struct task_struct init_task
 #ifdef CONFIG_ARCH_TASK_STRUCT_ON_STACK
 	__init_task_data
 #endif
+	/*; Iamroot17A 2020.Nov.28 #1.3
+	 *;
+	 *; init_task는 무조건 L1 Cache에 맞게 들어가도록 align되어있음.
+	 *; (이전에는 align이 적용되지 않았으나, 32bit 환경에서 MUTEX flag
+	 *;  문제로 강제로 align되도록 설정됨)
+	 *; >> 관련 commit: d0b7213f895cd0e209ff5ba89998aeb09267bdc7
+	 *; */
 	__aligned(L1_CACHE_BYTES)
 = {
 #ifdef CONFIG_THREAD_INFO_IN_TASK
