@@ -93,7 +93,7 @@ _head:
 	 * This add instruction has no meaningful effect except that
 	 * its opcode forms the magic "MZ" signature required by UEFI.
 	 */
-	/*; Iamroot17A 2020.Oct.17 #2
+	/*; Iamroot17A 2020.Oct.17 #2.1
 	 *;
 	 *; UEFI를 사용할 경우, Magic number로 "MZ"를 요구함.
 	 *; 아래 "add x13, x18, #0x16"은 ARM64 machine code로는 0x4D5A0091임.
@@ -121,7 +121,7 @@ _head:
 	.quad	0				// reserved
 	.ascii	ARM64_IMAGE_MAGIC		// Magic number
 #ifdef CONFIG_EFI
-	/*; Iamroot17A 2020.Oct.17 #3
+	/*; Iamroot17A 2020.Oct.17 #2.2
 	 *;
 	 *; UEFI가 동작하는 PE(Portable Executable) 실행파일 형식을 제공하기
 	 *; 위해서는 PE Header 시작 전에 64bytes의 DOS header가 필요함.
@@ -143,7 +143,7 @@ pe_header:
 	.long	0				// reserved
 #endif
 
-	/*; Iamroot17A 2020.Oct.17 #4
+	/*; Iamroot17A 2020.Oct.17 #3
 	 *;
 	 *; 실제 실행 코드는 여기서부터 진행되며, 결론적으로 커널 초기화의 시작
 	 *; 지점은 "primary_entry"라고 볼 수 있다. (기존 "stext"에서 refactor)
@@ -162,7 +162,7 @@ pe_header:
 	 *  x24        __primary_switch() .. relocate_kernel()  current RELR displacement
 	 */
 SYM_CODE_START(primary_entry)
-	/*; Iamroot17A 2020.Oct.17 #5
+	/*; Iamroot17A 2020.Oct.17 #4
 	 *;
 	 *; bl: Branch with Link, 다음 실행할 명령어의 PC(Program Counter)의
 	 *; 값을 LR(Link Register, ARM64에서는 X30)에 저장하고 argument 위치로
@@ -199,7 +199,7 @@ SYM_CODE_END(primary_entry)
  * Preserve the arguments passed by the bootloader in x0 .. x3
  */
 SYM_CODE_START_LOCAL(preserve_boot_args)
-	/*; Iamroot17A 2020.Oct.17 #6
+	/*; Iamroot17A 2020.Oct.17 #5
 	 *;
 	 *; primary CPU의 general-purpose register의 요구사항은 아래와 같음.
 	 *; X0: System RAM에서 FDT(dtb;Device Tree Blob)의 물리 주소
@@ -210,7 +210,7 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	 *; */
 	mov	x21, x0				// x21=FDT
 
-	/*; Iamroot17A 2020.Oct.17 #7
+	/*; Iamroot17A 2020.Oct.17 #6
 	 *;
 	 *; ADR: PC의 상대 주소를 기반으로 load한다. 왜 상대 주소를 기준으로
 	 *; 하냐면, 리눅스 커널은 PIC(Position Independent Code)로 동작하는데,
@@ -223,7 +223,7 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	stp	x21, x1, [x0]			// x0 .. x3 at kernel entry
 	stp	x2, x3, [x0, #16]
 
-	/*; Iamroot17A 2020.Oct.17 #9
+	/*; Iamroot17A 2020.Oct.17 #7
 	 *;
 	 *; dmb: Data Memory Barrier, 명령어 경계로 메모리, 캐시 순서 보장
 	 *; sy: System Sharable, 시스템 전체
@@ -239,7 +239,7 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	dmb	sy				// needed before dc ivac with
 						// MMU off
 
-	/*; Iamroot17A 2020.Oct.17 #10
+	/*; Iamroot17A 2020.Oct.17 #8
 	 *;
 	 *; "__inval_dcache_area" 호출 시, 기본 인자로 X0, X1을 사용한다.
 	 *; "X0": invalidate할 D-cache의 시작 주소
@@ -247,14 +247,14 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	 *; 이미 X0의 주소는 boot_args를 가리키고 있으므로, X1만 수정한다.
 	 *; */
 	mov	x1, #0x20			// 4 x 8 bytes
-	/*; Iamroot17A 2020.Oct.17 #11
+	/*; Iamroot17A 2020.Oct.17 #9
 	 *;
 	 *; Boot시의 CPU 조건이 d-cache가 꺼져있는 상태임에도 해당 영역을
 	 *; 비우는 이유는 추후 MMU가 켜진 뒤 Clean & invalidate 시 잘못된
 	 *; 데이터가 반영되는 것을 막기 위함이다.
 	 *; */
 	b	__inval_dcache_area		// tail call
-	/*; Iamroot17A 2020.Oct.17 #22
+	/*; Iamroot17A 2020.Oct.17 #10
 	 *;
 	 *; 원래 해당 Procedure가 종료되고 원래 caller(primary_entry)의 위치로
 	 *; 돌아가려면 "ret" instruction을 사용해야 한다.
@@ -658,13 +658,13 @@ EXPORT_SYMBOL(kimage_vaddr)
  * booted in EL1 or EL2 respectively.
  */
 SYM_FUNC_START(el2_setup)
-	/*; Iamroot17A 2020.Oct.17 #23
+	/*; Iamroot17A 2020.Oct.17 #11
 	 *;
 	 *; SPsel 레지스터의 설정 값을 1로 변경 (스택 포인터로 EL0를 쓸 것인지,
 	 *; 혹은 EL1/EL2를 사용할 것인지 선택)
 	 *; */
 	msr	SPsel, #1			// We want to use SP_EL{1,2}
-	/*; Iamroot17A 2020.Oct.17 #24
+	/*; Iamroot17A 2020.Oct.17 #12
 	 *;
 	 *; 현재 Exception Level을 가져와서, 해당 값이 EL2일 경우 EL2에 맞게
 	 *; 코드 실행, 아닐 경우 EL1에 맞게 수행하고 현재 procedure 종료.
@@ -704,7 +704,7 @@ SYM_FUNC_START(el2_setup)
 	isb
 	ret
 
-	/*; Iamroot17A 2020.Oct.17 #25
+	/*; Iamroot17A 2020.Oct.17 #13
 	 *;
 	 *; 본 분석에서는 EL2 (Hypervisor mode)로 동작하는 흐름은 분석하지
 	 *; 않는다. 단, EL1에서 처리하는 코드와 같은 내용이 어디에서 처리되는지
@@ -903,7 +903,7 @@ SYM_FUNC_START_LOCAL(set_cpu_boot_mode_flag)
 	/*; Iamroot17A 2020.Oct.24 #12
 	 *;
 	 *; Data memory barrier, 기존 분석 참고
-	 *; >> Iamroot17A 2020.Oct.17 #9
+	 *; >> Iamroot17A 2020.Oct.17 #7
 	 *; */
 	dmb	sy
 	dc	ivac, x1			// Invalidate potentially stale cache line
