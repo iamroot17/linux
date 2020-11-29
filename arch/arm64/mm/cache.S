@@ -152,6 +152,10 @@ SYM_FUNC_START_PI(__inval_dcache_area)
 	 *; X1은 Invalidate 할 영역의 끝 주소가 된다.
 	 *; */
 	add	x1, x1, x0
+	/*; Iamroot17A 2020.Oct.17 #9.2
+	 *;
+	 *; d-cache line 크기를 이용하여 x1(끝 주소)의 align여부를 확인한다.
+	 *; */
 	dcache_line_size x2, x3
 	sub	x3, x2, #1
 	tst	x1, x3				// end cache line aligned?

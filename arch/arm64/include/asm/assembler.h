@@ -301,6 +301,11 @@ alternative_endif
  * dcache_line_size - get the safe D-cache line size across all CPUs
  */
 	.macro	dcache_line_size, reg, tmp
+	/*; Iamroot17A 2020.Oct.17 #9.2.1
+	 *;
+	 *; CTR_EL0의 DminLine 값을 추출한다.
+	 *; DminLine은 cache line 크기에 해당하는 WORD 값을 Log2한 값이다.
+	 *; */
 	read_ctr	\tmp
 	ubfm		\tmp, \tmp, #16, #19	// cache line size encoding
 	mov		\reg, #4		// bytes per word
