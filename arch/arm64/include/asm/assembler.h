@@ -186,7 +186,7 @@ lr	.req	x30		// link register
 	 * @sym: name of the symbol
 	 */
 	.macro	adr_l, dst, sym
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #8
 	 *;
 	 *; ADR을 바로 사용할 경우, 현재 PC의 값에 따라 가리키는 값이 정확하지
 	 *; 않을 수도 있다. 이에 따라 해당 symbol의 주소를 페이지 단위로 adr을
@@ -269,14 +269,14 @@ alternative_endif
  */
 	.macro	read_ctr, reg
 alternative_if_not ARM64_MISMATCHED_CACHE_TYPE
-	/*; Iamroot 17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #13
 	 *;
 	 *; Cache type이 맞는 경우 "CTR_EL0"의 값을 가져온다.
 	 *; */
 	mrs	\reg, ctr_el0			// read CTR
 	nop
 alternative_else
-	/*; Iamroot 17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #14
 	 *;
 	 *; ARM64_MISMATCHED_CACHE_TYPE일 경우, Feature Register변수에서
 	 *; ctr_el0의 값을 가져온다.
@@ -302,14 +302,14 @@ alternative_endif
  */
 	.macro	dcache_line_size, reg, tmp
 	read_ctr	\tmp
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #15
 	 *;
 	 *; CTR_EL0의 DminLine 값을 추출한다.
 	 *; DminLine은 cache line 크기에 해당하는 WORD 값을 Log2한 값이다.
 	 *; */
 	ubfm		\tmp, \tmp, #16, #19	// cache line size encoding
 	mov		\reg, #4		// bytes per word
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #16
 	 *;
 	 *; DminLine은 log2를 취한 값이므로, Left shift를 하면 원본 값이 나온다.
 	 *; 여기서 byte 단위의 cache size를 가져오므로, 시작 숫자를 word 당
@@ -513,18 +513,50 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 	 *         between 2 and 4 movz/movk instructions (depending on the
 	 *         magnitude and sign of the operand)
 	 */
+	/*; Iamroot17A 2020.Oct.24 #2
+	 *;
+	 *; AArch64 Relocation 표현 별 의미
+	 *; abs: absolute
+	 *; g0~3: group 0~3 (2 byte per each group)
+	 *; s: signed
+	 *; nc: not check (overflow check)
+	 *;
+	 *; mov_q매크로를 C코드로 변환하면 아래와 같은 식의 코드가 된다.
+	 *; #if ((val <= INT32_MAX) || (val >= INT32_MIN))
+	 *;	reg = (val & 0x0000,0000,FFFF,0000);
+	 *; #else
+	 *;	#if ((val <= INT48_MAX) || (val >= INT48_MIN))
+	 *;		reg = (val & 0x0000,FFFF,0000,0000);
+	 *;	#else
+	 *;		reg = (val & 0xFFFF,0000,0000,0000);
+	 *;		reg |= (val & 0x0000,FFFF,0000,0000);
+	 *;	#endif
+	 *;	reg |= (val & 0x0000,0000,FFFF,0000);
+	 *; #endif
+	 *; reg |= (val & 0x0000,0000,0000,FFFF);
+	 *;
+	 *; 어셈블리 명령어가 담을 수 있는 상수 범위가 16-bit라서 이렇게
+	 *; 여러 단계로 쪼개서 수행하는 것으로 보임. 왜 굳이 컴파일러의 최적화에
+	 *; 맡기지 않고 이렇게 했을까에 대한 가설은 컴파일러 의존성 제거로
+	 *; 생각됨. (미리 최적화해버려서 컴파일러에 관계없이 같은 성능이 나오게)
+	 *; */
 	.macro	mov_q, reg, val
 	.if (((\val) >> 31) == 0 || ((\val) >> 31) == 0x1ffffffff)
+	/*; 32-bit 범위 숫자인 경우 일단 val[31:16]을 복사한다. */
 	movz	\reg, :abs_g1_s:\val
 	.else
 	.if (((\val) >> 47) == 0 || ((\val) >> 47) == 0x1ffff)
+	/*; 64-bit 범위이면서 val[63:48]이 0이면 val[47:32]을 복사한다. */
 	movz	\reg, :abs_g2_s:\val
 	.else
+	/*; val[63:48]의 값이 0이 아니면 val[63:32]까지 복사한다. */
 	movz	\reg, :abs_g3:\val
 	movk	\reg, :abs_g2_nc:\val
 	.endif
+	/*; 64-bit 범위인 경우, 남은 val[31:16]을 마저 복사한다. */
 	movk	\reg, :abs_g1_nc:\val
 	.endif
+	/*; 남은 val[15:0]을 마저 복사한다. */
 	movk	\reg, :abs_g0_nc:\val
 	.endm
 

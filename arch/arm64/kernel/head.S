@@ -36,6 +36,19 @@
 
 #include "efi-header.S"
 
+/*; Iamroot17A 2020.Oct.24 #8
+ *;
+ *; 초기 TEXT_OFFSET은 512KB였음. (아마도 ARM32에서 porting한 부분으로 예상)
+ *; 해당 512KB를 BSS 영역의 크기로 할당해서 사용했었으나, 현재 무의미해졌음.
+ *; KASLR 도입 과정에서 relocatable kernel 개념을 적용하면서 커널의 물리 주소가
+ *; 중요하지 않게 됨. (segment align만 잘 맞으면 되는데, 보통 64KB를 기준으로
+ *; 하기 때문에 512KB나 0이나 align이 맞게 됨.)
+ *; >> 관련 commit: cfa7ede20f133cc81cef01dc3a516dda3a9721ee
+ *;
+ *; 이전에는 빌드 타임에 무작위로 TEXT_OFFSET을 변경하는 config가 존재했는데,
+ *; 현재 커널 이미지를 2MB로 정렬하므로, 무의미해져 해당 config가 제거됨.
+ *; >> 관련 commit: 751c263bb74fd36b5fc2589d36abc75042336444
+ *; */
 #define __PHYS_OFFSET	(KERNEL_START - TEXT_OFFSET)
 
 #if (TEXT_OFFSET & 0xfff) != 0
@@ -46,10 +59,6 @@
 #error TEXT_OFFSET must be less than 2MB
 #endif
 
-/*; Iamroot17A 2020.Oct.17
- *;
- *; 여기가 bootloader 이후 커널의 최초 진입 지점이라 볼 수 있다.
- *; */
 /*
  * Kernel startup entry point.
  * ---------------------------
@@ -65,6 +74,15 @@
  * that are useful before the MMU is enabled. The allocations are described
  * in the entry routines.
  */
+/*; Iamroot17A 2020.Oct.17 #1
+ *;
+ *; 여기가 bootloader에서 올려준 커널 이미지의 최상단 헤더 부분이다.
+ *; __HEAD (.head.text section)는 커널 이미지의 시작 부분에 배치되며, primary
+ *; CPU가 여기 있는 명령어를 통해 stext(현재 primary_entry로 refactor됨)로
+ *; 분기되어야 한다.
+ *;
+ *; >> /Documentation/arm64/booting.rst 4. Call the kernel image 참고
+ *; */
 	__HEAD
 _head:
 	/*
@@ -75,12 +93,19 @@ _head:
 	 * This add instruction has no meaningful effect except that
 	 * its opcode forms the magic "MZ" signature required by UEFI.
 	 */
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #2
 	 *;
 	 *; UEFI를 사용할 경우, Magic number로 "MZ"를 요구함.
-	 *; 아래 "add x13, x18, #0x16"을 ARM64 machine code로는 0x4D5A0091
-	 *; 근데 왜 ".ascii MZ"나 ".long 0x4D5A0000"가 아니라 어셈블리 명령어로
-	 *; 표현했는지는 모르겠음.
+	 *; 아래 "add x13, x18, #0x16"은 ARM64 machine code로는 0x4D5A0091임.
+	 *; EFI로 부팅되는 경우에는 아래 "b primary_entry"로 진입되는 것이
+	 *; 아니라, PE header의 정보를 통해 primary_entry로 진입하게 되지만
+	 *; 커널을 EFI 지원으로 빌드했지만 부트로더가 EFI로 부팅하지 않는 경우
+	 *; 하위호환성을 지원하기 위해 아래와 같이 구현한 것으로 보임.
+	 *; (Magic number를 만족하면서, 커널 초기화 과정에 영향을 주지 않는
+	 *;  무의미한 명령어를 배치했다고 생각하면 됨.)
+	 *;
+	 *; RISC-V에서도 이와 비슷한 방식으로 구현되어 있음. (v5.10-rc1)
+	 *; >> 관련 commit: cb7d2dd5612a77a2597c00fce770a52c921e2ea5
 	 *; */
 	add	x13, x18, #0x16
 	b	primary_entry
@@ -96,7 +121,7 @@ _head:
 	.quad	0				// reserved
 	.ascii	ARM64_IMAGE_MAGIC		// Magic number
 #ifdef CONFIG_EFI
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #3
 	 *;
 	 *; UEFI가 동작하는 PE(Portable Executable) 실행파일 형식을 제공하기
 	 *; 위해서는 PE Header 시작 전에 64bytes의 DOS header가 필요함.
@@ -107,8 +132,8 @@ _head:
 	 *; PE의 시작점 offset 확인을 위한 [0x3C, 0x3F] 4byte의 값만 확인한다.
 	 *; "pe_header" label과 "_head" label 간의 offset 차이는 현재 0x3C이다.
 	 *;
-	 *; https://en.wikibooks.org/wiki/X86_Disassembly/Windows_Executable_Files 참고
-	 *; https://en.wikipedia.org/wiki/Portable_Executable 그림 참고
+	 *; >> https://en.wikibooks.org/wiki/X86_Disassembly/Windows_Executable_Files 참고
+	 *; >> https://en.wikipedia.org/wiki/Portable_Executable 그림 참고
 	 *; */
 	.long	pe_header - _head		// Offset to the PE header.
 
@@ -118,10 +143,10 @@ pe_header:
 	.long	0				// reserved
 #endif
 
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #4
 	 *;
-	 *; 실제 실행 코드는 여기서부터 진행되며, 결론적으로 최초 진입 지점은
-	 *; "primary_entry"라고 볼 수 있다. (기존 "stext"에서 변경됨)
+	 *; 실제 실행 코드는 여기서부터 진행되며, 결론적으로 커널 초기화의 시작
+	 *; 지점은 "primary_entry"라고 볼 수 있다. (기존 "stext"에서 refactor)
 	 *; */
 	__INIT
 
@@ -137,7 +162,7 @@ pe_header:
 	 *  x24        __primary_switch() .. relocate_kernel()  current RELR displacement
 	 */
 SYM_CODE_START(primary_entry)
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #5
 	 *;
 	 *; bl: Branch with Link, 다음 실행할 명령어의 PC(Program Counter)의
 	 *; 값을 LR(Link Register, ARM64에서는 X30)에 저장하고 argument 위치로
@@ -145,6 +170,17 @@ SYM_CODE_START(primary_entry)
 	 *; */
 	bl	preserve_boot_args
 	bl	el2_setup			// Drop to EL1, w0=cpu_boot_mode
+	/*; Iamroot17A 2020.Oct.24 #7
+	 *;
+	 *; 커널 이미지의 재배치를 위한 offset의 값을 X23에 저장한다.
+	 *; 추후 해당 값은 KASLR(Kernel Address Space Layout Randomization)의
+	 *; offset으로 변형되는데, 지금은 기본적인 offset으로 설정한다고
+	 *; 생각하면 된다. (과거엔 __PHYS_OFFSET이 의미있었으나 지금은
+	 *; 커널 이미지 재배치로 인해 의미가 거의 없어진 상태다.)
+	 *; 커널 이미지는 2MB 단위로 align되어야 한다. (MIN_KIMG_ALIGN == SZ_2M)
+	 *;
+	 *; X23은 __create_page_tables에서 참조하는데 왜 먼저 수정하는지 의문
+	 *; */
 	adrp	x23, __PHYS_OFFSET
 	and	x23, x23, MIN_KIMG_ALIGN - 1	// KASLR offset, defaults to 0
 	bl	set_cpu_boot_mode_flag
@@ -163,15 +199,18 @@ SYM_CODE_END(primary_entry)
  * Preserve the arguments passed by the bootloader in x0 .. x3
  */
 SYM_CODE_START_LOCAL(preserve_boot_args)
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #6
 	 *;
-	 *; FDT(dtb;Device Tree Blob)의 물리 주소
+	 *; primary CPU의 general-purpose register의 요구사항은 아래와 같음.
+	 *; X0: System RAM에서 FDT(dtb;Device Tree Blob)의 물리 주소
+	 *; X1~X3: 0 (Reserved for future use)
+	 *;
 	 *; 추후 변수를 저장할 boot_args의 주소가 X0에 할당되므로 미리 X21로
 	 *; 옮기는 작업을 수행함.
 	 *; */
 	mov	x21, x0				// x21=FDT
 
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #7
 	 *;
 	 *; ADR: PC의 상대 주소를 기반으로 load한다. 왜 상대 주소를 기준으로
 	 *; 하냐면, 리눅스 커널은 PIC(Position Independent Code)로 동작하는데,
@@ -184,19 +223,23 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	stp	x21, x1, [x0]			// x0 .. x3 at kernel entry
 	stp	x2, x3, [x0, #16]
 
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #9
 	 *;
-	 *; dmb: Data Memory Barrier, 해당 명령어 전후로 메모리 접근 순서 분리
+	 *; dmb: Data Memory Barrier, 명령어 경계로 메모리, 캐시 순서 보장
 	 *; sy: System Sharable, 시스템 전체
 	 *;
-	 *; dmb는 캐시가 아니라 메모리 버퍼를 flush시킴. 즉 메모리에 대한
-	 *; 확실한 write를 하기 위해 수행함. 메모리에 기록하는 것을 확실하게
-	 *; 보장하기 위해 실행한다고 생각하면 됨.
+	 *; 상단의 boot_args[4]에 X0~X3의 값이 완전히 기록되는 것을 보장하기
+	 *; 위해 호출함. (아래 __inval_dcache_area에 의한 stale cache 현상을
+	 *; 방지하기 위한 barrier)
+	 *;
+	 *; >> MMU가 꺼진 상태에서 barrier 사용에 관한 질문
+	 *; >> http://www.iamroot.org/xe/index.php?document_srl=213162 참고
+	 *; >> https://lore.kernel.org/kernelnewbies/CAEcHRToEjECSNpdocLwtd6M1vC2qEhBa2pziCV5g75d6h86kFQ@mail.gmail.com/T/#m390fd945500591ec444028da325b0d1481175be3
 	 *; */
 	dmb	sy				// needed before dc ivac with
 						// MMU off
 
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #10
 	 *;
 	 *; "__inval_dcache_area" 호출 시, 기본 인자로 X0, X1을 사용한다.
 	 *; "X0": invalidate할 D-cache의 시작 주소
@@ -204,14 +247,14 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	 *; 이미 X0의 주소는 boot_args를 가리키고 있으므로, X1만 수정한다.
 	 *; */
 	mov	x1, #0x20			// 4 x 8 bytes
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #11
 	 *;
 	 *; Boot시의 CPU 조건이 d-cache가 꺼져있는 상태임에도 해당 영역을
 	 *; 비우는 이유는 추후 MMU가 켜진 뒤 Clean & invalidate 시 잘못된
 	 *; 데이터가 반영되는 것을 막기 위함이다.
 	 *; */
 	b	__inval_dcache_area		// tail call
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #22
 	 *;
 	 *; 원래 해당 Procedure가 종료되고 원래 caller(primary_entry)의 위치로
 	 *; 돌아가려면 "ret" instruction을 사용해야 한다.
@@ -219,10 +262,10 @@ SYM_CODE_START_LOCAL(preserve_boot_args)
 	 *; 다른 변수에 임시 저장되어야 한다. 하지만 "__inval_dcache_area"
 	 *; 내부에서 "ret"를 호출하므로 여기에선 생략했다.
 	 *; 만약 tail call 최적화가 없으면 이런 식으로 구성되어야 한다.
-	 *;	mov	x2, x30
+	 *;	mov	x28, x30
 	 *;	bl	__inval_dcache_area
-	 *;	ret	x2
-	 *; https://en.wikipedia.org/wiki/Tail_call 참고
+	 *;	ret	x28
+	 *; >> https://en.wikipedia.org/wiki/Tail_call 참고
 	 *; */
 SYM_CODE_END(preserve_boot_args)
 
@@ -363,6 +406,13 @@ SYM_CODE_END(preserve_boot_args)
  *     been enabled
  */
 SYM_FUNC_START_LOCAL(__create_page_tables)
+	/*; Iamroot17A 2020.Oct.24 #16
+	 *;
+	 *; 아래 __inval_dcache_area 호출 시 link register(X30)이 overwrite되기
+	 *; 때문에 원래 return해야 할 주소(primary_entry의 bl __cpu_setup)를
+	 *; X28에 임시 보관한다. (__create_page_tables 마지막에 ret x28로 원래
+	 *; 위치에 맞게 복귀하게 된다.)
+	 *; */
 	mov	x28, lr
 
 	/*
@@ -371,10 +421,32 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	 * the kernel image, and thus are clean to the PoC per the boot
 	 * protocol.
 	 */
+	/*; Iamroot17A 2020.Oct.24 #17
+	 *;
+	 *; init_pg_dir은 부팅되어 MMU on 이후 사용될 초기 커널 이미지가 올라갈
+	 *; 커널 주소 영역의 (0xFFFF..으로 시작하는 가상주소) 페이지들을 말한다.
+	 *; */
 	adrp	x0, init_pg_dir
+	/*; Iamroot17A 2020.Oct.24 #18
+	 *;
+	 *; init_pg_end는 init_pg_dir에서부터 사용될 페이지들의 크기를 offset한
+	 *; 끝 주소를 뜻한다. (arch/arm64/kernel/vmlinux.lds.S 참고)
+	 *; 해당 크기는 INIT_DIR_SIZE로 정의되어있음.
+	 *; (arch/arm64/include/asm/kernel-pgtable.h 참고)
+	 *; */
 	adrp	x1, init_pg_end
 	sub	x1, x1, x0
+	/*; Iamroot17A 2020.Oct.24 #19
+	 *;
+	 *; init page table 영역에 관련된 d-cache를 invalidate 해줌으로서
+	 *; 원치 않는 값이 씌여지는 현상을 방지한다.
+	 */
 	bl	__inval_dcache_area
+	/*; Iamroot17A 2020.Oct.24 #20
+	 *;
+	 *; 왜 __inval_dcache_area 이후에는 "dmb"를 안하냐면
+	 *; __inval_dcache_area 안에서 이미 "dsb sy"가 수행되었기 때문이다.
+	 *; */
 
 	/*
 	 * Clear the init page tables.
@@ -382,6 +454,13 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	adrp	x0, init_pg_dir
 	adrp	x1, init_pg_end
 	sub	x1, x1, x0
+	/*; Iamroot17A 2020.Oct.24 #21
+	 *;
+	 *; 아래 stp 4개 연속으로 있는 것은 Loop unrolling으로 보임.
+	 *; (branch에 의한 pipeline stall을 줄이기 위함)
+	 *; 보통 loop unrolling 단위는 cache size를 기준으로 함.
+	 *; >> https://en.wikipedia.org/wiki/Loop_unrolling 참고
+	 *; */
 1:	stp	xzr, xzr, [x0], #16
 	stp	xzr, xzr, [x0], #16
 	stp	xzr, xzr, [x0], #16
@@ -579,13 +658,13 @@ EXPORT_SYMBOL(kimage_vaddr)
  * booted in EL1 or EL2 respectively.
  */
 SYM_FUNC_START(el2_setup)
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #23
 	 *;
 	 *; SPsel 레지스터의 설정 값을 1로 변경 (스택 포인터로 EL0를 쓸 것인지,
 	 *; 혹은 EL1/EL2를 사용할 것인지 선택)
 	 *; */
 	msr	SPsel, #1			// We want to use SP_EL{1,2}
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #24
 	 *;
 	 *; 현재 Exception Level을 가져와서, 해당 값이 EL2일 경우 EL2에 맞게
 	 *; 코드 실행, 아닐 경우 EL1에 맞게 수행하고 현재 procedure 종료.
@@ -593,17 +672,48 @@ SYM_FUNC_START(el2_setup)
 	mrs	x0, CurrentEL
 	cmp	x0, #CurrentEL_EL2
 	b.eq	1f
+	/*; Iamroot17A 2020.Oct.24 #1
+	 *;
+	 *; SCTLR_EL1에 32-bit mode에 대한 endianness를 설정한다. (64-bit은
+	 *; Little-endian으로 고정됨.) RES1은 SCTLR_EL1의 field bit 중
+	 *; reserved 값 중 기본 값을 1로 설정한 field들을 말한다. (추후 해당
+	 *; field가 다른 용도로 사용될 것을 고려하여 RES0 혹은 RES1을 결정.)
+	 *; 일부 RES1 필드는 ARMv8.x extension에서 사용된다.
+	 *;
+	 *; 상수 값인 64-bit를 직접 MSR로 집어넣지 못하기 때문에 X0에 넣으며,
+	 *; X0에도 64-bit를 직접 집어넣지 못하므로 mov_q 매크로를 사용한다.
+	 *; */
 	mov_q	x0, (SCTLR_EL1_RES1 | ENDIAN_SET_EL1)
 	msr	sctlr_el1, x0
+	/*; Iamroot17A 2020.Oct.24 #3
+	 *;
+	 *; el2_setup procedure에서 최종적으로 W0에 선택될 Exception Level을
+	 *; 반환해야 한다. (현재 EL1으로 선택되었으므로, BOOT_CPU_MODE_EL1 선택)
+	 *; */
 	mov	w0, #BOOT_CPU_MODE_EL1		// This cpu booted in EL1
+	/*; Iamroot17A 2020.Oct.24 #4
+	 *;
+	 *; ISB: Instruction Synchronization Barrier
+	 *; 해당 명령어를 경계로 이전의 Instruction이 모두 수행되게 한다.
+	 *; (미리 pipeline되어 있던 아래쪽 Instruction들을 모두 flush 시킴.)
+	 *; Context change operation 수행 시 호출되는 경우가 대표적.
+	 *; 현재 Head.S 기준으로는 MSR로 특정 설정을 변경했을 때, 이를
+	 *; 반영하지 않은 Instruction들이 수행되는 것을 막기 위해 barrier를
+	 *; 거는 것으로 보임.
+	 *; */
 	isb
 	ret
 
-	/*; Iamroot17A 2020.Oct.17
+	/*; Iamroot17A 2020.Oct.17 #25
 	 *;
 	 *; 본 분석에서는 EL2 (Hypervisor mode)로 동작하는 흐름은 분석하지
 	 *; 않는다. 단, EL1에서 처리하는 코드와 같은 내용이 어디에서 처리되는지
 	 *; 유사한 흐름을 확인하기 위한 분석은 수행한다.
+	 *; */
+	/*; Iamroot17A 2020.Oct.24 #5
+	 *;
+	 *; EL1의 경우와 같이 SCTLR_EL2에 32-bit mode에 대한 endianness를
+	 *; 설정한다. 또한 똑같이 RES1을 설정한다.
 	 *; */
 1:	mov_q	x0, (SCTLR_EL2_RES1 | ENDIAN_SET_EL2)
 	msr	sctlr_el2, x0
@@ -714,6 +824,11 @@ set_hcr:
 
 	cbz	x2, install_el2_stub
 
+	/*; Iamroot17A 2020.Oct.24 #6
+	 *;
+	 *; el2_setup procedure에서 최종적으로 W0에 선택될 Exception Level을
+	 *; 반환해야 한다. (현재 EL2로 선택되었으므로, BOOT_CPU_MODE_EL2 선택)
+	 *; */
 	mov	w0, #BOOT_CPU_MODE_EL2		// This CPU booted in EL2
 	isb
 	ret
@@ -762,11 +877,34 @@ SYM_FUNC_END(el2_setup)
  * in w0. See arch/arm64/include/asm/virt.h for more info.
  */
 SYM_FUNC_START_LOCAL(set_cpu_boot_mode_flag)
+	/*; Iamroot17A 2020.Oct.24 #9
+	 *;
+	 *; __boot_cpu_mode 주소를 X1에 읽어온다. (정확히는 __boot_cpu_mode[0])
+	 *; */
 	adr_l	x1, __boot_cpu_mode
+	/*; Iamroot17A 2020.Oct.24 #10
+	 *;
+	 *; W0(이전의 el2_setup에서 수정한 현재 Boot Exception Level)이
+	 *; EL1인 경우 현재 X1이 가진 주소를 그대로 유지 (__boot_cpu_mode[0])
+	 *; EL2인 경우 X1의 주소에서 += 4byte를 한다. (__boot_cpu_mode[1])
+	 *; (__boot_cpu_mode를 현재 Boot Exception Level로 통일하려 함)
+	 *; */
 	cmp	w0, #BOOT_CPU_MODE_EL2
 	b.ne	1f
 	add	x1, x1, #4
+	/*; Iamroot17A 2020.Oct.24 #11
+	 *;
+	 *; 앞에서 수정한 X1의 주소에 현재 Boot Exception Level로 수정한다.
+	 *; __boot_cpu_mode의 초기 값을 확인해보면 서로 반대로 되어 있다.
+	 *; set_cpu_boot_mode_flag가 완료된 상태라면 해당 배열이 전부
+	 *; 현재 Boot Exception Level로 통일되어 있을 것이다.
+	 *; */
 1:	str	w0, [x1]			// This CPU has booted in EL1
+	/*; Iamroot17A 2020.Oct.24 #12
+	 *;
+	 *; Data memory barrier, 기존 분석 참고
+	 *; >> Iamroot17A 2020.Oct.17 #9
+	 *; */
 	dmb	sy
 	dc	ivac, x1			// Invalidate potentially stale cache line
 	ret
@@ -778,6 +916,22 @@ SYM_FUNC_END(set_cpu_boot_mode_flag)
  * 'Cache Writeback Granule' (CWG) worth of data. The linker script ensures
  * sufficient alignment that the CWG doesn't overlap another section.
  */
+	/*; Iamroot17A 2020.Oct.24 #13
+	 *;
+	 *; 아래 ".popsection"까지 (__boot_cpu_mode, __early_cpu_boot_status)
+	 *; 선언된 symbol에 대하여 ".mmuoff.data.write" section으로 설정한다.
+	 *; 해당 section의 설정을 linker script에서 확인하면 2KB로 align되어
+	 *; 있는 것을 확인할 수 있다. ("aw"는 Alloc, Write임을 나타내는 flag)
+	 *;
+	 *; align을 해 주는 이유는 아키텍처마다 읽어오는 기본 크기(WORD)에
+	 *; 맞게 주소를 배치하여 메모리 접근 속도를 최적화하기 위함이다.
+	 *; ARM64의 경우 align이 되어 있지 않은 경우 alignment fault가 발생한다.
+	 *; >> ARMv8 Architecture Reference Manual, B2.5 참고
+	 *;	- Instruction: 언제나 fault 발생
+	 *;	- Data, Device Memory: 언제나 fault 발생
+	 *;		(현재 MMU off 상태이므로 모두 device memory 취급)
+	 *;	- Data, Normal Memory: 거의 다 발생
+	 *; */
 	.pushsection ".mmuoff.data.write", "aw"
 /*
  * We need to find out the CPU boot mode long after boot, so we need to
