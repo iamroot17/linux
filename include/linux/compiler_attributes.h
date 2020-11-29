@@ -54,7 +54,7 @@
  *; 기존 .align과 다르게 __aligned(x) macro의 X는 2의 제곱수로 넣어야 한다.
  *; (/include/linux/linkage.h에 선언된 .align)
  *; (.align은 assembler에서 적용, __aligned는 compiler에서 적용)
- *; >> Iamroot17A 2020.Oct.24 #14 참고
+ *; >> Iamroot17A 2020.Oct.24 #7.1.1 참고
  *; */
 #define __aligned(x)                    __attribute__((__aligned__(x)))
 #define __aligned_largest               __attribute__((__aligned__))

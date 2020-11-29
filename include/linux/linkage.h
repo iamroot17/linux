@@ -68,7 +68,7 @@
 #endif
 #endif
 
-/*; Iamroot17A 2020.Oct.24 #14
+/*; Iamroot17A 2020.Oct.24 #7.1.1
  *
  *; .align SHIFT,FILL
  *;	SHIFT: 숫자의 bit shift 단위로 align
