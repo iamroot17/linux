@@ -32,6 +32,14 @@
  * rely on the access being split into 2x32-bit accesses for a 32-bit quantity
  * (e.g. a virtual address) and a strong prevailing wind.
  */
+/*; Iamroot17A 2020.Nov.28 #9.3
+ *;
+ *; WRITE_ONCE에서 compiletime_assert_rwonce_type(x)를 수행하게 되는데,
+ *; 해당 내용은 WRITE_ONCE할 변수가 CPU에서 1 cycle로 write 할 수 있는 변수인지
+ *; 확인한다. (__native_word(t)는 char, short, int, long의 크기인지 확인)
+ *; atomic한 64bit 값 변경을 위해 long long의 경우가 추가된 것으로 보임.
+ *; >> 관련 commit: 9e343b467c70379e66b8b771d96f03ae23eba351
+ *; */
 #define compiletime_assert_rwonce_type(t)					\
 	compiletime_assert(__native_word(t) || sizeof(t) == sizeof(long long),	\
 		"Unsupported access size for {READ,WRITE}_ONCE().")
@@ -50,11 +58,22 @@
 	__READ_ONCE(x);							\
 })
 
+/*; Iamroot17A 2020.Nov.28 #9.4
+ *;
+ *; 기능 자체는 x = val; 과 같음. 하지만 앞에 volatile을 붙여줌으로서
+ *; 일종의 memory barrier와 같은 효과를 받는 것으로 보임. (컴파일러 최적화 방지)
+ *; */
 #define __WRITE_ONCE(x, val)						\
 do {									\
 	*(volatile typeof(x) *)&(x) = (val);				\
 } while (0)
 
+/*; Iamroot17A 2020.Nov.28 #9.2
+ *;
+ *; 함수/매크로 앞에 "__"이 붙은 경우 실제 함수/매크로의 기능을 수행하는 부분을
+ *; 뜻한다. (아래 예시의 경우 WRITE_ONCE는 compile time 검증을 먼저 하고 실제
+ *; atomic한 write는 __WRITE_ONCE에서 수행되는 것을 확인할 수 있다.
+ *; */
 #define WRITE_ONCE(x, val)						\
 do {									\
 	compiletime_assert_rwonce_type(x);				\

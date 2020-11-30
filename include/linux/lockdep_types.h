@@ -61,6 +61,14 @@ struct lockdep_subclass_key {
 } __attribute__ ((__packed__));
 
 /* hash_entry is used to keep track of dynamically allocated keys. */
+/*; Iamroot17A 2020.Nov.28 #12.1
+ *;
+ *; lockdep: lock의 유효성 검증을 위한 기능의 헤더
+ *; 현재 mutex, spin_lock 초기화 시 사용되는 구조체 (debug_XXX의 Arg로 사용되며
+ *;  debug시 lock의 정보를 알아내기 위해 사용되는 것으로 보임.)
+ *; lock이 걸린 상태에서 또 lock을 시도하는지 확인하는 것과 관련된 것으로 예상
+ *; >> 관련 commit: de8f5e4f2dc1f032b46afda0a78cab5456974f89
+ *; */
 struct lock_class_key {
 	union {
 		struct hlist_node		hash_entry;

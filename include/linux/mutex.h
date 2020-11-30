@@ -54,6 +54,15 @@ struct mutex {
 	atomic_long_t		owner;
 	spinlock_t		wait_lock;
 #ifdef CONFIG_MUTEX_SPIN_ON_OWNER
+	/*; Iamroot17A 2020.Nov.28 #12.2
+	 *;
+	 *; 리눅스 커널 내에는 lock이 걸려 있을 때, spin_lock 기법을 사용한다.
+	 *; (unlock을 기다리느라 코드를 수행하지 못한다면 해당 task를 sched하지
+	 *;  않고, 금방 unlock될 것이라 기대하며 계속 busy-waiting하는 것)
+	 *; optimistic_spin_queue는 이 spin_lock으로 바로 코드를 수행할 수
+	 *; 있을 것이라 기대하면서 기다리는 queue를 뜻하는 것으로 보임.
+	 *; >> http://jake.dothome.co.kr/mutex/ 참고
+	 *; */
 	struct optimistic_spin_queue osq; /* Spinner MCS lock */
 #endif
 	struct list_head	wait_list;

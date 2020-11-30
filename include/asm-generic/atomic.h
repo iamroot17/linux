@@ -176,6 +176,10 @@ ATOMIC_OP(xor, ^)
  *
  * Atomically sets the value of @v to @i.
  */
+/*; Iamroot17A 2020.Nov.28 #10.1
+ *;
+ *; Architecture independent하게 구현된 atomic_set, WRITE_ONCE를 사용한다.
+ *; */
 #define atomic_set(v, i) WRITE_ONCE(((v)->counter), (i))
 
 #include <linux/irqflags.h>

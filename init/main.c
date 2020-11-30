@@ -838,6 +838,13 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	char *command_line;
 	char *after_dashes;
 
+	/*; Iamroot17A 2020.Nov.28 #1
+	 *;
+	 *; set_task_stack_end_magic의 Arg로 전달된 init_task 분석
+	 *; (struct task_struct 및 초기 값 분석)
+	 *;
+	 *; 항목이 너무 많아 초반 부분만 다루고 나중에 필요시 확인하기로 함.
+	 *; */
 	set_task_stack_end_magic(&init_task);
 	smp_setup_processor_id();
 	debug_objects_early_init();

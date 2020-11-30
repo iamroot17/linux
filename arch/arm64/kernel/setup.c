@@ -84,6 +84,10 @@ u64 __cacheline_aligned boot_args[4];
 
 void __init smp_setup_processor_id(void)
 {
+	/*; Iamroot17A 2020.Nov.28 #4
+	 *;
+	 *; 현재 CPU ID를 가져온다. (MultiProcessor ID Register)
+	 *; */
 	u64 mpidr = read_cpuid_mpidr() & MPIDR_HWID_BITMASK;
 	set_cpu_logical_map(0, mpidr);
 
@@ -93,6 +97,12 @@ void __init smp_setup_processor_id(void)
 	 * access percpu variable inside lock_release
 	 */
 	set_my_cpu_offset(0);
+	/*; Iamroot17A 2020.Nov.28 #5
+	 *;
+	 *; 위에서는 read_cpuid_mpidr()을 사용하고, 아래 printk에서는
+	 *; 추가적으로 read_cpuid_id()를 사용하고 있다.
+	 *; 이름은 비슷해보이지만 서로 다른 레지스터의 값을 가져오고 있음.
+	 *; */
 	pr_info("Booting Linux on physical CPU 0x%010lx [0x%08x]\n",
 		(unsigned long)mpidr, read_cpuid_id());
 }

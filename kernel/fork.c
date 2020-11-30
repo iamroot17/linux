@@ -842,7 +842,16 @@ void set_task_stack_end_magic(struct task_struct *tsk)
 {
 	unsigned long *stackend;
 
+	/*; Iamroot17A 2020.Nov.28 #2
+	 *;
+	 *; Kernel stack의 끝 주소를 알아내기 위한 end_of_stack 분석
+	 *; */
 	stackend = end_of_stack(tsk);
+	/*; Iamroot17A 2020.Nov.28 #3
+	 *;
+	 *; Kernel Stack의 Overflow를 감지하기 위해 마지막 부분에
+	 *; magic number로 변경해놓는다.
+	 *; */
 	*stackend = STACK_END_MAGIC;	/* for overflow detection */
 }
 

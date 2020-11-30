@@ -175,6 +175,33 @@ typedef struct {
 } atomic64_t;
 #endif
 
+/*; Iamroot17A 2020.Nov.28 #11.1
+ *;
+ *; Kernel 내부에서 사용하는 list는 아래 보듯 next와 prev 포인터만 존재하는
+ *; double linked list인 것을 확인할 수 있다. 하지만 data 부분도 존재하지 않고
+ *; data를 가리키는 void*도 존재하지 않는다. 어떻게 각 노드의 데이터를 사용하나?
+ *;
+ *; Kernel 내 각 struct들의 관계를 list로 구성해야 할 경우, struct의 멤버로
+ *; struct list_head를 선언하고, next와 prev는 해당 struct의 시작 주소가 아닌
+ *; 멤버인 list_head의 주소를 연결한다. 멤버의 offset 주소를 통해 각 노드의
+ *; 시작 주소를 알아낼 수 있다.
+ *; ```c
+ *; struct data_node {
+ *;	int data;
+ *;	struct list_head list;
+ *; }
+ *; data_node a, b, *p;
+ *; // list 간 연결은 다른 node의 list_head 주소를 가리킨다.
+ *; a.list.next = &(b.list);
+ *; // 해당 struct에서 사용하는 list_head의 offset 크기를 빼서
+ *; // 원래 struct의 주소를 알 수 있음.
+ *; p = (struct data_node*) \
+ *;		((size_t)(a.list.next) - offsetof(struct data_node, list));
+ *; printf("%d", p->data);
+ *; ```
+ *; (원래 include/linux/list.h를 활용해야 하지만 원리 설명을 위해 직접 표현함)
+ *; >> https://stackoverflow.com/questions/52359598/ 참고
+ *; */
 struct list_head {
 	struct list_head *next, *prev;
 };
