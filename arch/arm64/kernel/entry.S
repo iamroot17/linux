@@ -60,8 +60,24 @@
 #define BAD_FIQ		2
 #define BAD_ERROR	3
 
+	/*; Iamroot17A 2020.Nov.21 #1.1.1
+	 *;
+	 *; Exception Vector 정의를 위한 macro
+	 *; regsize = 64는 macro의 3번째 인자가 입력되지 않으면 그 값을 64로
+	 *; 가정한다는 것이다. (Exception Vector의 정의 부분을 보면 32bit
+	 *; 관련 Exception만 3번째 인자로 32가 설정된 것을 확인할 수 있다.
+	 *; (C++ 함수 정의에서 default argument와 같은 역할)
+	 *; >> Iamroot17A 2020.Nov.21 #1.2 참고
+	 *; */
 	.macro kernel_ventry, el, label, regsize = 64
 	.align 7
+	/*; Iamroot17A 2020.Nov.21 #1.1.2
+	 *;
+	 *; Cache timing 이슈에 의한 보안 문제(인텔 meltdown)를 방지하는 코드
+	 *; 유저 영역에서 MMU 권한체크를 우회하여 커널 영역에 접근하는 버그를
+	 *; 방지하기 위해 커널 영역을 완전히 분리한다.
+	 *; (Trampoline/Link Register를 0으로 변경하여 접근이 불가능해짐)
+	 *; */
 #ifdef CONFIG_UNMAP_KERNEL_AT_EL0
 	.if	\el == 0
 alternative_if ARM64_UNMAP_KERNEL_AT_EL0
@@ -75,6 +91,11 @@ alternative_else_nop_endif
 	.endif
 #endif
 
+	/*; Iamroot17A 2020.Nov.21 #1.1.3
+	 *;
+	 *; Context switch에서 현재 레지스터들을 백업하기 위해 pt_regs 구조체
+	 *; 크기만큼 stack을 확보한다.
+	 *; */
 	sub	sp, sp, #S_FRAME_SIZE
 #ifdef CONFIG_VMAP_STACK
 	/*
@@ -82,11 +103,33 @@ alternative_else_nop_endif
 	 * Task and IRQ stacks are aligned so that SP & (1 << THREAD_SHIFT)
 	 * should always be zero.
 	 */
+	/*; Iamroot17A 2020.Nov.21 #1.1.4
+	 *;
+	 *; 현재 SP에 overflow가 발생했는지 확인한다.
+	 *; SP는 직접 TBNZ 등의 instruction에 사용할 수 없으므로 X0와
+	 *; 값을 변경하며, 이 과정에서 arithmetic swap을 사용하고 있다.
+	 *; Stack을 사용하지 않는 이유는 DRAM 접근 속도에 의한 성능 저하를
+	 *; 방지하기 위함이다.
+	 *; XOR swap이 아닌 Arithmetic swap을 사용하는 이유는 X0와 SP의 값이
+	 *; overflow가 발생할 정도로 크기 않기 때문으로 예상됨.
+	 *; >> https://en.wikipedia.org/wiki/XOR_swap_algorithm#Variations 참고
+	 *; */
 	add	sp, sp, x0			// sp' = sp + x0
 	sub	x0, sp, x0			// x0' = sp' - x0 = (sp + x0) - x0 = sp
+	/*; Iamroot17A 2020.Nov.21 #1.1.5
+	 *;
+	 *; Stack overflow를 감지하기 위해 기본적인 정렬을 stack 크기의 2배로
+	 *; 할당해놓고(원래 크기보다 2bit 상향), 그 아래 bit를 확인하여 1인 경우
+	 *; overflow로 판단, label 0:로 이동한다.
+	 *; */
 	tbnz	x0, #THREAD_SHIFT, 0f
 	sub	x0, sp, x0			// x0'' = sp' - x0' = (sp + x0) - sp = x0
 	sub	sp, sp, x0			// sp'' = sp' - x0 = (sp + x0) - x0 = sp
+	/*; Iamroot17A 2020.Nov.21 #1.1.6
+	 *;
+	 *; \()\$ARG는 $ARG문자 그대로 치환하는 매크로 표기법이다.
+	 *; C의 preprocessor에서 ##과 같은 역할이다.
+	 *; */
 	b	el\()\el\()_\label
 
 0:
@@ -103,6 +146,11 @@ alternative_else_nop_endif
 	sub	x0, sp, x0
 	msr	tpidrro_el0, x0
 
+	/*; Iamroot17A 2020.Nov.21 #1.1.7
+	 *;
+	 *; Stack overflow 발생시, 현재 사용하는 stack을 overflow_stack으로
+	 *; 변경한다. (각 CPU 별로 overflow 상황을 대비하기 위해 준비된 스택)
+	 *; */
 	/* Switch to the overflow stack */
 	adr_this_cpu sp, overflow_stack + OVERFLOW_STACK_SIZE, x0
 
@@ -477,6 +525,11 @@ alternative_endif
 	.pushsection ".entry.text", "ax"
 
 	.align	11
+/*; Iamroot17A 2020.Nov.21 #1.1
+ *
+ *; Exception Vector를 선언한다. 총 16개의 Entry가 .align 11 (0x80 byte) 크기로
+ *; 제공된다.
+ *; */
 SYM_CODE_START(vectors)
 	kernel_ventry	1, sync_invalid			// Synchronous EL1t
 	kernel_ventry	1, irq_invalid			// IRQ EL1t
@@ -493,6 +546,12 @@ SYM_CODE_START(vectors)
 	kernel_ventry	0, fiq_invalid			// FIQ 64-bit EL0
 	kernel_ventry	0, error			// Error 64-bit EL0
 
+	/*; Iamroot17A 2020.Nov.21 #1.2
+	 *;
+	 *; CONFIG_COMPAT: 64bit 커널에서 32bit application 실행 지원 여부
+	 *; (defconfig에서 y)
+	 *; 해당 CONFIG가 꺼져있는 경우, XXX_invalid로 변경되는 것을 볼 수 있다.
+	 *; */
 #ifdef CONFIG_COMPAT
 	kernel_ventry	0, sync_compat, 32		// Synchronous 32-bit EL0
 	kernel_ventry	0, irq_compat, 32		// IRQ 32-bit EL0

@@ -592,24 +592,80 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	__ptrauth_keys_init_cpu	x5, x6, x7, x8
 #endif
 
+	/*; Iamroot17A 2020.Nov.21 #1
+	 *;
+	 *; Vector table의 주소를 VBAR_EL1에 등록한다.
+	 *; VBAR_EL1: Vector Base Address Register
+	 *; */
 	adr_l	x8, vectors			// load VBAR_EL1 with virtual
 	msr	vbar_el1, x8			// vector table address
 	isb
 
+	/*; Iamroot17A 2020.Nov.21 #2
+	 *;
+	 *; ARM64 Procedure Call Standard에 맞춰 stack frame을 생성한다.
+	 *; X30(Link Register)와 X29(Frame Pointer)의 값을 설정한다.
+	 *; >> 관련 commit: 60699ba18b69ff210ed0304bc23f6c9d11d27a72
+	 *; */
 	stp	xzr, x30, [sp, #-16]!
 	mov	x29, sp
 
+	/*; Iamroot17A 2020.Nov.21 #3
+	 *;
+	 *; Shadow Call Stack은 Stack buffer overflow 등의 공격에서 return
+	 *; address를 보호하기 위해 사용되는 기법이다.
+	 *; 해당 기법의 원리를 간단하게 설명하면, 기존의 call stack을 사용하는
+	 *; 방식에서 추가적으로 shadow call stack 영역을 추가하여, call stack
+	 *; 연산시 접근 가능한 address 등을 입력하여 Stack buffer overflow를
+	 *; 감지하거나 예방하는 등으로 활용된다.
+	 *; >> https://en.wikipedia.org/wiki/Shadow_stack 참고
+	 *; >> https://clang.llvm.org/docs/ShadowCallStack.html 참고
+	 *; (defconfig에서 n이며, compiler가 지원해야하므로 자세한 분석 생략)
+	 *; */
 #ifdef CONFIG_SHADOW_CALL_STACK
 	adr_l	scs_sp, init_shadow_call_stack	// Set shadow call stack
 #endif
 
+	/*; Iamroot17A 2020.Nov.21 #4
+	 *;
+	 *; X21(preserve_boot_args()에서 보관한 FDT의 물리 주소)을
+	 *; __fdt_pointer에 보관한다.
+	 *; >> arch/arm64/kernel/setup.c 의 __fdt_pointer 선언 참고
+	 *; */
 	str_l	x21, __fdt_pointer, x5		// Save FDT pointer
 
+	/*; Iamroot17A 2020.Nov.21 #5
+	 *;
+	 *; 커널의 가상주소 오프셋을 계산한다.
+	 *; (커널의 시작 가상 주소 - 커널의 시작 물리 주소)
+	 *; X0는 __primary_switched()로 진입하기 전에 이미 __PHYS_OFFSET 값을
+	 *; 설정한 상태다.
+	 *; (__primary_switch에서 변경했으며 KASLR 적용 전/후 모두 동일함)
+	 *; >> Iamroot17A 2020.Nov.21 #5.1 참고 (커널의 시작 가상 주소)
+	 *; >> Iamroot17A 2020.Oct.24 #6.1 참고 (커널의 시작 물리 주소)
+	 *;
+	 *; __PHYS_OFFSET과 kimage_vaddr은 compile time에서의 정의가 같다.
+	 *; 다만 __PHYS_OFFSET을 읽어올 때 ADRP를 통해 읽어오기 때문에 X0는
+	 *; 물리 주소를 나타내게 되는 것이다.
+	 *; */
 	ldr_l	x4, kimage_vaddr		// Save the offset between
 	sub	x4, x4, x0			// the kernel virtual and
 	str_l	x4, kimage_voffset, x5		// physical mappings
 
 	// Clear BSS
+	/*; Iamroot17A 2020.Nov.21 #6
+	 *;
+	 *; 기존에는 BSS 영역 초기화 시 반복문을 사용했는데, 이제는 memset()을
+	 *; 사용하고 있다. __pi_memset()은 Position Independent한 memset()으로,
+	 *; ARM64 어셈블리로 구현되어있다.
+	 *; X0: source, 초기화할 메모리 시작 주소
+	 *; X1: character, 초기화할 값
+	 *; X2: number, 초기화할 byte의 갯수
+	 *; >> 관련 commit: 2a803c4db615d85126c5c7afd5849a3cfde71422
+	 *;
+	 *; __pi_memset() 원본 정의가 없는 이유는 매크로를 통해 심볼이 생성됨
+	 *; >> arch/arm64/lib/memset.S 참고
+	 *; */
 	adr_l	x0, __bss_start
 	mov	x1, xzr
 	adr_l	x2, __bss_stop
@@ -621,16 +677,55 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	bl	kasan_early_init
 #endif
 #ifdef CONFIG_RANDOMIZE_BASE
+	/*; Iamroot17A 2020.Nov.21 #7
+	 *;
+	 *; 커널 이미지 재배치를 위한 offset이 KASLR이 적용된 상태인지 확인한다.
+	 *; 1) KASLR이 아직 적용되지 않았다면, X23의 값은 bootloader가 올려준
+	 *;    커널 이미지 물리 주소의 하위 비트만 살려둔 상태기 때문에
+	 *;    MIN_KIMG_ALIGN의 상위 비트들은 모두 0일 것이다.
+	 *;    즉 label 0:로 branch하지 못하고, kaslr_early_init 관련 흐름으로
+	 *;    실행되게 된다. (ret를 통해 다시 __primary_switch()로 복귀해서,
+	 *;    KASLR을 적용한 상태로 init_pg_dir을 다시 생성하고 relocation하여
+	 *;    __primary_switched가 재호출되어 이 지점으로 돌아오게 된다.
+	 *; 2) 만약 KASLR이 적용된 상태라면, 위와 다르게 상위 비트가 모두 1로
+	 *;    변경되는 것으로 보이며, label 0:로 branch하여 start_kernel()로
+	 *;    진입하는 흐름을 수행한다.
+	 *; >> Iamroot17A 2020.Oct.24 #6 참고 (X23 초기 설정 부분)
+	 *; */
 	tst	x23, ~(MIN_KIMG_ALIGN - 1)	// already running randomized?
 	b.ne	0f
+	/*; Iamroot17A 2020.Nov.21 #8
+	 *;
+	 *; kaslr_early_init을 호출한다. 해당 함수의 인자로 FDT의 주소를
+	 *; 사용하므로, ARM64 Procedure Call Standard에 따라 해당 인자를 X0에
+	 *; 넣고 호출한다.
+	 *; */
 	mov	x0, x21				// pass FDT address in x0
 	bl	kaslr_early_init		// parse FDT for KASLR options
+	/*; Iamroot17A 2020.Nov.21 #9
+	 *;
+	 *; kaslr_early_init()에서 KASLR 적용 여부가 취소된 경우, 커널 이미지
+	 *; 재배치를 위한 offset이 무작위로 생성되지 않았으며, init_pg_dir
+	 *; 재생성 및 relocation이 무의미해진다. 이 경우 그냥 label 0:로
+	 *; branch하여 start_kernel()로 진입한다.
+	 *; */
 	cbz	x0, 0f				// KASLR disabled? just proceed
+	/*; Iamroot17A 2020.Nov.21 #10
+	 *;
+	 *; kaslr_early_init에서 return한 무작위 offset 값으로 X23을 변경하고
+	 *; KASLR을 적용하기 위해 return한다. (__primary_switch()서 마저 수행함)
+	 *; */
 	orr	x23, x23, x0			// record KASLR offset
 	ldp	x29, x30, [sp], #16		// we must enable KASLR, return
 	ret					// to __primary_switch()
 0:
 #endif
+	/*; Iamroot17A 2020.Nov.21 #11
+	 *;
+	 *; ARM64 Procedure Call Standard에 맞춰 LR과 FP를 설정한다.
+	 *; start_kernel() 기준으로 caller가 없는 것 처럼 설정해야 하기 때문에
+	 *; 모두 0으로 설정된다.
+	 *; */
 	add	sp, sp, #16
 	mov	x29, #0
 	mov	x30, #0
@@ -638,6 +733,14 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 SYM_FUNC_END(__primary_switched)
 
 	.pushsection ".rodata", "a"
+/*; Iamroot17A 2020.Nov.21 #5.1
+ *;
+ *; _text의 값은 .head.text의 시작 주소이며, 커널의 시작 가상 주소를 나타낸다.
+ *; TEXT_OFFSET은 이전에 분석하였듯 현재 큰 의미를 갖지 못하며,
+ *; 커널의 가상 주소 계산 과정에서 서로 상쇄된다.
+ *; >> arch/arm64/kernel/vmlinux.lds.S 내 _text 정의 참고
+ *; >> Iamroot17A 2020.Oct.24 #6.1 참고 (TEXT_OFFSET 히스토리)
+ *; */
 SYM_DATA_START(kimage_vaddr)
 	.quad		_text - TEXT_OFFSET
 SYM_DATA_END(kimage_vaddr)
@@ -1238,11 +1341,24 @@ SYM_FUNC_START_LOCAL(__primary_switch)
 	 * to take into account by discarding the current kernel mapping and
 	 * creating a new one.
 	 */
+	/*; Iamroot17A 2020.Nov.21 #10.1
+	 *;
+	 *; KASLR을 적용하기 위해서 다시 return하면 여기부터 실행된다.
+	 *; 먼저 MMU를 다시 비활성화하고 다시 페이지 테이블을 생성한다.
+	 *; MMU 비활성화 이후 다시 물리 주소 기반으로 수행되도록
+	 *; Instruction Barrier를 수행한다.
+	 *; (per_disable_mmu_workaround도 Instruction Barrier를 수행하지만
+	 *;  특수한 경우에만 필요한 것으로 보임.)
+	 *; */
 	pre_disable_mmu_workaround
 	msr	sctlr_el1, x20			// disable the MMU
 	isb
 	bl	__create_page_tables		// recreate kernel mapping
 
+	/*; Iamroot17A 2020.Nov.21 #10.2
+	 *;
+	 *; MMU 비활성화 이전에 생성되었던 TLB entry들을 모두 invalidate한다.
+	 *; */
 	tlbi	vmalle1				// Remove any stale TLB entries
 	dsb	nsh
 
@@ -1253,6 +1369,12 @@ SYM_FUNC_START_LOCAL(__primary_switch)
 	isb
 
 	bl	__relocate_kernel
+	/*; Iamroot17A 2020.Nov.21 #10.3
+	 *;
+	 *; 다시 relocate하고 __primary_switched()를 호출한다.
+	 *; 이전과 달리 KASLR이 적용되어있으므로 다시 복귀하지 않고
+	 *; start_kernel()로 진입하게 될 것이다.
+	 *; */
 #endif
 #endif
 	ldr	x8, =__primary_switched

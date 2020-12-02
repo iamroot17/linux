@@ -38,10 +38,19 @@ static __init u64 get_kaslr_seed(void *fdt)
 	u64 ret;
 
 	node = fdt_path_offset(fdt, "/chosen");
+	/*; Iamroot17A 2020.Nov.21 #8.3.1
+	 *;
+	 *; FDT에서 "chosen"을 찾지 못하는 경우 seed 값 얻기 실패
+	 *; */
 	if (node < 0)
 		return 0;
 
 	prop = fdt_getprop_w(fdt, node, "kaslr-seed", &len);
+	/*; Iamroot17A 2020.Nov.21 #8.3.2
+	 *;
+	 *; FDT의 "chosen" 안의 "kaslr-seed" 값을 찾지 못하거나, 해당 값이
+	 *; 64bit 길이가 아닌 경우 seed 값 얻기 실패
+	 *; */
 	if (!prop || len != sizeof(u64))
 		return 0;
 
@@ -79,6 +88,12 @@ out:
  * containing function pointers) to be reinitialized, and zero-initialized
  * .bss variables will be reset to 0.
  */
+/*; Iamroot17A 2020.Nov.21 #8.1
+ *;
+ *; KASLR 적용을 위한 무작위 오프셋을 생성하는 함수이다.
+ *; 이번 분석에서는 간략하게 "어떤 경우에 KASLR 적용이 취소되는지"만 분석한다.
+ *; KASLR 적용이 취소되지 않으면 어쨋든 무작위 오프셋을 생성한다고 판단한다.
+ *; */
 u64 __init kaslr_early_init(u64 dt_phys)
 {
 	void *fdt;
@@ -101,6 +116,12 @@ u64 __init kaslr_early_init(u64 dt_phys)
 	 */
 	early_fixmap_init();
 	fdt = fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL);
+	/*; Iamroot17A 2020.Nov.21 #8.2
+	 *;
+	 *; FDT에 대한 Fixmap remapping 실패 시, boot args 확인이 불가능하다.
+	 *; bootloader가 올려준 seed 값이나, nokaslr 옵션 등을 확인하지 못하기
+	 *; 때문에 KASLR이 취소된다.
+	 *; */
 	if (!fdt) {
 		kaslr_status = KASLR_DISABLED_FDT_REMAP;
 		return 0;
@@ -109,6 +130,13 @@ u64 __init kaslr_early_init(u64 dt_phys)
 	/*
 	 * Retrieve (and wipe) the seed from the FDT
 	 */
+	/*; Iamroot17A 2020.Nov.21 #8.3
+	 *;
+	 *; FDT의 정보를 불러올 수 있다면, argument로 전달된 kaslr-seed의 값을
+	 *; 읽어온다. 만약 실패한다면 seed의 값은 0이다.
+	 *; FDT에 전달되는 seed의 값은 EFI에서 생성해서 전달되어야 한다.
+	 *; >> Documentation/devicetree/binding/chosen.txt 참고
+	 *; */
 	seed = get_kaslr_seed(fdt);
 
 	/*
@@ -117,6 +145,11 @@ u64 __init kaslr_early_init(u64 dt_phys)
 	 */
 	cmdline = kaslr_get_cmdline(fdt);
 	str = strstr(cmdline, "nokaslr");
+	/*; Iamroot17A 2020.Nov.21 #8.4
+	 *;
+	 *; 만약 boot args에 전달된 command line중 "nokaslr"이 있는 경우
+	 *; 부팅 옵션 중에 강제로 KASLR 취소를 요청한 것이다.
+	 *; */
 	if (str == cmdline || (str > cmdline && *(str - 1) == ' ')) {
 		kaslr_status = KASLR_DISABLED_CMDLINE;
 		return 0;
@@ -127,9 +160,20 @@ u64 __init kaslr_early_init(u64 dt_phys)
 	 * and supported.
 	 */
 
+	/*; Iamroot17A 2020.Nov.21 #8.5
+	 *;
+	 *; 하드웨어적으로 무작위 값을 얻어온다.
+	 *; ARM v8.5에서 FEAT_RNG 기능이 추가되었음. (Implementation-Defined)
+	 *; */
 	if (arch_get_random_seed_long_early(&raw))
 		seed ^= raw;
 
+	/*; Iamroot17A 2020.Nov.21 #8.6
+	 *;
+	 *; 만약 kaslr-seed를 얻지 못했고, 하드웨어적으로도 무작위 시드 값을
+	 *; 생성하지 못했다면 seed 값이 0으로 고정되는 것이며, seed 값의 고정은
+	 *; 적절한 무작위성을 보장할 수 없으므로 KASLR을 취소한다.
+	 *; */
 	if (!seed) {
 		kaslr_status = KASLR_DISABLED_NO_SEED;
 		return 0;
