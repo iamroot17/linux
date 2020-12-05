@@ -116,9 +116,21 @@ DEFINE_PERCPU_RWSEM(cgroup_threadgroup_rwsem);
  */
 static struct workqueue_struct *cgroup_destroy_wq;
 
+/*; Iamroot17A 2020.Dec.05 #1.1.1
+ *;
+ *; 아래 코드들은 각 cgroup subsystem 구조체의 주소 연결, 이름 생성,
+ *; static key 생성 및 symbol 노출 관련 코드를 compile-time에 생성한다.
+ *; */
 /* generate an array of cgroup subsystem pointers */
 #define SUBSYS(_x) [_x ## _cgrp_id] = &_x ## _cgrp_subsys,
 struct cgroup_subsys *cgroup_subsys[] = {
+	/*; ex. cpuset, cpu, memory 서브시스템만 선택된 경우
+	 *; ```c
+	 *; [cpuset_cgrp_id] = &cpuset_cgrp_subsys,
+	 *; [cpu_cgrp_id] = &cpu_cgrp_subsys,
+	 *; [memory_cgrp_id] = &memory_cgrp_subsys,
+	 *; ```
+	 *; */
 #include <linux/cgroup_subsys.h>
 };
 #undef SUBSYS
@@ -126,6 +138,13 @@ struct cgroup_subsys *cgroup_subsys[] = {
 /* array of cgroup subsystem names */
 #define SUBSYS(_x) [_x ## _cgrp_id] = #_x,
 static const char *cgroup_subsys_name[] = {
+	/*; ex. cpuset, cpu, memory 서브시스템만 선택된 경우
+	 *; ```c
+	 *; [cpuset_cgrp_id] = "cpuset",
+	 *; [cpu_cgrp_id] = "cpu",
+	 *; [memory_cgrp_id] = "memory",
+	 *; ```
+	 *; */
 #include <linux/cgroup_subsys.h>
 };
 #undef SUBSYS
@@ -927,6 +946,10 @@ static void css_set_move_task(struct task_struct *task,
  * an existing css_set. This hash doesn't (currently) take into
  * account cgroups in empty hierarchies.
  */
+/*; Iamroot17A 2020.Dec.05 #1.4.1
+ *;
+ *; css_set_table: hash table로 관리된다.
+ *; */
 #define CSS_SET_HASH_BITS	7
 static DEFINE_HASHTABLE(css_set_table, CSS_SET_HASH_BITS);
 
@@ -5634,6 +5657,12 @@ static void __init cgroup_init_subsys(struct cgroup_subsys *ss, bool early)
 
 	mutex_lock(&cgroup_mutex);
 
+	/*; Iamroot17A 2020.Dec.05 #2
+	 *;
+	 *; IDR, IDA (ID allocation)
+	 *; Radix tree를 사용하여 정수 ID와 특정 포인터로 연결시키는 기술
+	 *; 여기에서는 task ID로 struct task_struct를 빠르게 찾기 위해 사용된다.
+	 *; */
 	idr_init(&ss->css_idr);
 	INIT_LIST_HEAD(&ss->cfts);
 
@@ -5689,6 +5718,27 @@ static void __init cgroup_init_subsys(struct cgroup_subsys *ss, bool early)
  *;
  *; cgroup: 커널의 리소스 관리를 해주는 기능
  *; >> https://en.wikipedia.org/wiki/Cgroups 참고
+ *; */
+/*; Iamroot17A 2020.Dec.05 #1
+ *;
+ *; cgroup: Control Group, "프로세스 그룹"을 대상으로 (커널의 task들)
+ *; 리소스 사용 관리, 우선순위 지정, 고립, 모니터링 등을 지원하는 기능
+ *; * core: 프로세스들을 계층적으로 관리하는 부분 (v1의 hierarchy)
+ *; * controller: 각 시스템 리소스 관리 부분 (v1의 subsystem)
+ *; * core와 controller를 연결하여 cgroup의 기능 제공
+ *;
+ *; * /sys/fs/cgroup 을 통해 직접 제어 가능
+ *; * 커널의 각 리소스들을 통합해서 관리하는 것이 아님
+ *; * 커널의 필수 모듈은 아님, 관리 편의성을 위해 제공되는 모듈
+ *;
+ *; cgroup 개념 참고 자료
+ *; >> Documentation/admin-guide/cgroup-v1/cgroups.rst
+ *; >> Documentation/admin-guide/cgroup-v2.rst
+ *; >> http://jake.dothome.co.kr/control-groups/
+ *; >> http://studyfoss.egloos.com/5505982
+ *; >> http://studyfoss.egloos.com/5506102
+ *; >> https://oakbytes.wordpress.com/2012/09/02/cgroup-cpu-allocation-cpu-shares-examples/
+ *; >> http://terenceli.github.io/%E6%8A%80%E6%9C%AF/2020/01/05/cgroup-internlas
  *; */
 int __init cgroup_init_early(void)
 {

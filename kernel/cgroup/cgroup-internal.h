@@ -73,6 +73,11 @@ static inline struct cgroup_fs_context *cgroup_fc2context(struct fs_context *fc)
  * which exists for each association and allows traversing the associations
  * from both sides.
  */
+/*; Iamroot17A 2020.Dec.05 #1.5
+ *;
+ *; struct cgrp_cset_link: struct cgroup과 struct css_set을 연결하는 구조체
+ *; css_set과 cgroup이 M:N 연결이 발생하게 되므로 이를 표현하기 위해 사용함
+ *; */
 struct cgrp_cset_link {
 	/* the cgroup and css_set this link associates */
 	struct cgroup		*cgrp;

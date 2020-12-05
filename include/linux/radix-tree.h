@@ -19,6 +19,13 @@
 #include <linux/local_lock.h>
 
 /* Keep unconverted code working */
+/*; Iamroot17A 2020.Dec.05 #2.2
+ *;
+ *; 기존 radix tree는 그냥 배열로 구현되어왔으나, xarray로 구현 방식이 변경됨.
+ *; xarray는 C++ STL의 vector과 같이 runtime에 크기를 쉽게 늘릴 수 있는 등
+ *; 기존의 배열 방식 구현에 비해 장점이 더 많다고 한다.
+ *; >> https://www.kernel.bz/boardPost/118679/19 참고
+ *; */
 #define radix_tree_root		xarray
 #define radix_tree_node		xa_node
 

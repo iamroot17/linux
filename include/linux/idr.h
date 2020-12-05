@@ -18,6 +18,13 @@
 
 struct idr {
 	struct radix_tree_root	idr_rt;
+	/*; Iamroot17A 2020.Dec.05 #2.1
+	 *;
+	 *; 기존의 IDR에서 ID값을 1부터 사용하고 싶어하는 경우를 고려하여
+	 *; idr_base라는 값을 도입하여 0번 index 공간을 낭비하지 않고도
+	 *; 1번부터 접근할 수 있게 했음
+	 *; >> 관련 commit: ce711f2750031d12cec91384ac5cfa0a485b60a
+	 */
 	unsigned int		idr_base;
 	unsigned int		idr_next;
 };
