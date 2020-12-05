@@ -41,6 +41,22 @@ struct poll_table_struct;
 /* define the enumeration of all cgroup subsystems */
 #define SUBSYS(_x) _x ## _cgrp_id,
 enum cgroup_subsys_id {
+	/*; Iamroot17A 2020.Dec.05 #1.1
+	 *;
+	 *; cgroup의 subsystem 정의는 include/linux/cgroup_subsys.h에 정의됨
+	 *; (커널의 config에 따라 subsystem 사용 여부가 결정됨)
+	 *; 해당 header include 전후로 SUBSYS(_x)에 대한 define, undef를 통해
+	 *; 코드를 compile-time에 생성함.
+	 *; 현재 부분은 subsystem별 index 번호를 생성하는 부분임
+	 *;
+	 *; ex. cpuset, cpu, memory 서브시스템만 선택된 경우
+	 *; ```c
+	 *; cpuset_cgrp_id,	// (enum 선언에 따라 0번)
+	 *; cpu_cgrp_id,	// (enum 선언에 따라 1번)
+	 *; memory_cgrp_id,	// (enum 선언에 따라 2번)
+	 *; // CGROUP_SUBSYS_COUNT는 enum 선언에 따라 3이 됨
+	 *; ```
+	 *; */
 #include <linux/cgroup_subsys.h>
 	CGROUP_SUBSYS_COUNT,
 };
@@ -135,6 +151,14 @@ struct cgroup_file {
  * Fields marked with "PI:" are public and immutable and may be accessed
  * directly without synchronization.
  */
+/*; Iamroot17A 2020.Dec.05 #1.3
+ *;
+ *; struct cgroup_subsys_state: subsystem의 state를 나타내는 구조체
+ *; 관리할 task들의 cgroup과 이를 적용할 subsystem을 연결하고 있음.
+ *;
+ *; C++에서 객체의 superclass 정의와 비슷하다고 볼 수 있음.
+ *; (객체의 상태를 정의하고, 사용할 메서드의 function table을 갖고 있음)
+ *; */
 struct cgroup_subsys_state {
 	/* PI: the cgroup that this css is attached to */
 	struct cgroup *cgroup;
@@ -192,6 +216,14 @@ struct cgroup_subsys_state {
  * list_add()/del() can bump the reference count on the entire cgroup
  * set for a task.
  */
+/*; Iamroot17A 2020.Dec.05 #1.4
+ *;
+ *; struct css_set: 여러 subsystem state를 모아놓은 집합을 나타내는 구조체
+ *; 각 subsystem별로 다른 디렉토리 구조(state)를 가질 수 있고, 각 task는 다른
+ *; subsystem의 state를 선택할 수 있으므로 다양한 조합이 생기게 된다.
+ *;
+ *; css_set들은 css_set_table이란 hash table에 의해 관리된다.
+ *; */
 struct css_set {
 	/*
 	 * Set of subsystem states, one for each subsystem. This array is
@@ -353,6 +385,11 @@ struct cgroup_freezer_state {
 	int nr_frozen_tasks;
 };
 
+/*; Iamroot17A 2020.Dec.05 #1.6
+ *;
+ *; struct cgroup: 각 cgroup filesystem의 디렉토리 정보를 나타내는 구조체
+ *; (실제 filesystem의 연결은 struct cgroup_file, struct cftype 등에서 구현)
+ *; */
 struct cgroup {
 	/* self css with NULL ->ss, points back to this cgroup */
 	struct cgroup_subsys_state self;
@@ -491,6 +528,10 @@ struct cgroup {
  * associated with a kernfs_root to form an active hierarchy.  This is
  * internal to cgroup core.  Don't access directly from controllers.
  */
+/*; Iamroot17A 2020.Dec.05 #1.7
+ *;
+ *; struct cgroup_root: 프로세스들을 계층적으로 관리하는 hierarchy의 구조체
+ *; */
 struct cgroup_root {
 	struct kernfs_root *kf_root;
 
@@ -618,6 +659,16 @@ struct cftype {
  * Control Group subsystem type.
  * See Documentation/admin-guide/cgroup-v1/cgroups.rst for details
  */
+/*; Iamroot17A 2020.Dec.05 #1.2
+ *;
+ *; struct cgroup_subsys: 각 서브시스템의 기능 호출을 위한 구조체
+ *; 함수 포인터를 통해 C++의 객체에서 메서드 호출과 비슷한 방식으로 사용한다.
+ *; >> kernel/cgroup/cpuset.c 참고 (cpuset_cgrp_subsys 정의)
+ *; >> kernel/sched/core.c 참고 (cpu_cgrp_subsys 정의)
+ *;
+ *; struct cgroup_subsys_state의 관계와 고려했을 때 C++의 클래스 상속에서
+ *; 상속된 객체의 재정의된 함수에 대한 function table과 비슷한 역할로 보임.
+ *; */
 struct cgroup_subsys {
 	struct cgroup_subsys_state *(*css_alloc)(struct cgroup_subsys_state *parent_css);
 	int (*css_online)(struct cgroup_subsys_state *css);

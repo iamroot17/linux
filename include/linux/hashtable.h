@@ -13,6 +13,16 @@
 #include <linux/hash.h>
 #include <linux/rculist.h>
 
+/*; Iamroot17A 2020.Dec.05 #1.4.2
+ *;
+ *; hash table은 hlist_head로 hash 값의 entry 시작 주소로 사용된다.
+ *; hlist_node는 기존 list와 달리 prev를 이중 포인터로 연결하는데
+ *; 기존 list 대비 tail의 O(1) 접근은 불가능하지만 head가 포인터를 덜 쓴다는
+ *; 장점이 있다고 한다.
+ *; >> include/linux/types.h 참고 (struct hlist_head, struct hlist_node 정의)
+ *; >> include/linux/list.h 참고 (hlist 관련 함수/매크로 정의)
+ *; >> https://www3.cs.stonybrook.edu/~dongyoon/cse506-f19/lecture/lec06-kds1.pdf
+ *; */
 #define DEFINE_HASHTABLE(name, bits)						\
 	struct hlist_head name[1 << (bits)] =					\
 			{ [0 ... ((1 << (bits)) - 1)] = HLIST_HEAD_INIT }
