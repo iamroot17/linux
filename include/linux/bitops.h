@@ -257,6 +257,12 @@ static __always_inline void __assign_bit(long nr, volatile unsigned long *addr,
 
 #ifdef __KERNEL__
 
+/*; Iamroot17A 2020.Dec.12 #7
+ *;
+ *; set_mask_bits(), bit_clear_unless()는 cmpxchg(Compare-And-Swap)을 이용하여
+ *; 반복적으로 비트 값을 SET/CLEAR하여, atomic하게 잘 반영되었는지 확인한다.
+ *; >> https://en.wikipedia.org/wiki/Compare-and-swap 참고
+ *; */
 #ifndef set_mask_bits
 #define set_mask_bits(ptr, mask, bits)	\
 ({								\

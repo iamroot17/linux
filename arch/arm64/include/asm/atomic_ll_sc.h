@@ -35,6 +35,15 @@ asm_ops "\n"								\
  * to ensure that the update happens.
  */
 
+/*; Iamroot17A 2020.Dec.12 #5.2
+ *;
+ *; 아래 inline assembly 부분에서 LL/SC 방식으로 반복 시도하는 것을 볼수있다.
+ *; LDXR: Load-Linked, 변경할 변수의 주소를 가져오며 표식을 남긴다.
+ *; ASM_OP: macro에서 선택한 연산 (ADD, SUB, AND, OR 등)
+ *; STXR: Conditional-Store, 표식을 확인하여 Store한다. 실패시 FLAG가 설정된다.
+ *; 이후 FLAG를 통해 STXR이 실패했다고 판단될 경우 다시 LDXR로 돌아간다.
+ *; >> https://en.wikipedia.org/wiki/Load-link/store-conditional 참고
+ *; */
 #define ATOMIC_OP(op, asm_op, constraint)				\
 static inline void							\
 __ll_sc_atomic_##op(int i, atomic_t *v)					\
