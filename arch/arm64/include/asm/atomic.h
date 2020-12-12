@@ -165,6 +165,11 @@ static inline long arch_atomic64_dec_if_positive(atomic64_t *v)
 /*
  * 64-bit arch_atomic operations.
  */
+/*; Iamroot17A 2020.Dec.12 #2.3.5.3
+ *;
+ *; 실제 arch_atomic64_XXX_XXXX macro는 위의 macro를 통해 생성된
+ *; inline 함수로 연결된다.
+ *; */
 #define ATOMIC64_INIT				ATOMIC_INIT
 #define arch_atomic64_read			arch_atomic_read
 #define arch_atomic64_set			arch_atomic_set

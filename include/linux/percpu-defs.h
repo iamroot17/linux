@@ -238,6 +238,11 @@ do {									\
 
 #define raw_cpu_ptr(ptr)						\
 ({									\
+	/*; Iamroot17A 2020.Dec.12 #2.2.5
+	 *;
+	 *; __verify_pcpu_ptr()는 Sparse tool에서 검증하기 위해 사용되는
+	 *; 코드 부분이다. 실제 수행하는 코드 역할은 없으니 분석 생략한다.
+	 *; */								\
 	__verify_pcpu_ptr(ptr);						\
 	arch_raw_cpu_ptr(ptr);						\
 })

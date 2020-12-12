@@ -475,6 +475,12 @@ void __init page_address_init(void)
 {
 	int i;
 
+	/*; Iamroot17A 2020.Dec.12 #3.1
+	 *;
+	 *; struct page_address_slot을 사용한 배열 struct_address_htable의
+	 *; list와 spinlock을 초기화한다.
+	 *; 그런데 왜 여기에서는 hlist가 아니라 list를 사용하는지 의문
+	 *; */
 	for (i = 0; i < ARRAY_SIZE(page_address_htable); i++) {
 		INIT_LIST_HEAD(&page_address_htable[i].lh);
 		spin_lock_init(&page_address_htable[i].lock);

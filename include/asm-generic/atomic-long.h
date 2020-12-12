@@ -332,6 +332,10 @@ atomic_long_or(long i, atomic_long_t *v)
 static __always_inline long
 atomic_long_fetch_or(long i, atomic_long_t *v)
 {
+	/*; Iamroot17A 2020.Dec.12 #2.3.5
+	 *;
+	 *; 현재 64bit이므로 64bit의 atomic fetch or를 수행한다.
+	 *; */
 	return atomic64_fetch_or(i, v);
 }
 

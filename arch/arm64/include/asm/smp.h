@@ -31,6 +31,10 @@
 #include <linux/cpumask.h>
 #include <linux/thread_info.h>
 
+/*; Iamroot17A 2020.Dec.12 #2.2.4
+ *;
+ *; cpu_number는 per_cpu로 선언된 변수임
+ *; */
 DECLARE_PER_CPU_READ_MOSTLY(int, cpu_number);
 
 /*
@@ -40,6 +44,11 @@ DECLARE_PER_CPU_READ_MOSTLY(int, cpu_number);
  * And we can't use this_cpu_ptr() either, as that winds up recursing back
  * here under CONFIG_DEBUG_PREEMPT=y.
  */
+/*; Iamroot17A 2020.Dec.12 #2.2.3
+ *;
+ *; raw_cpu_ptr의 macro에서 나온 주소 값을 pointer dereference operator를 통해
+ *; cpu_number 주소에서 값을 가져온다.
+ *; */
 #define raw_smp_processor_id() (*raw_cpu_ptr(&cpu_number))
 
 /*
