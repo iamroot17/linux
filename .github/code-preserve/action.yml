@@ -1,0 +1,17 @@
+name: "Check code modification"
+description: "Check if previous code history were modified"
+author: "jsyoo5b@gmail.com"
+
+inputs:
+    BASE_COMMIT:
+        description: "The base commit hash to preserve code"
+        required: true
+        default: "bbf5c9790"
+
+runs:
+    using: "docker"
+    image: "Dockerfile"
+
+branding:
+    icon: "check-square"
+    color: "green"
