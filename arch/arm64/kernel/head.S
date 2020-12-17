@@ -660,7 +660,7 @@ SYM_FUNC_START_LOCAL(__primary_switched)
 	 *; ARM64 어셈블리로 구현되어있다.
 	 *; X0: source, 초기화할 메모리 시작 주소
 	 *; X1: character, 초기화할 값
-	 *; X2: number, 초기화할 byte의 갯수
+	 *; X2: number, 초기화할 byte의 개수
 	 *; >> 관련 commit: 2a803c4db615d85126c5c7afd5849a3cfde71422
 	 *;
 	 *; __pi_memset() 원본 정의가 없는 이유는 매크로를 통해 심볼이 생성됨

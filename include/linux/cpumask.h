@@ -14,6 +14,11 @@
 #include <linux/bug.h>
 
 /* Don't assign or return these: may not be this big! */
+/*; Iamroot17A 2020.Dec.12 #2.3.2
+ *;
+ *; CPU의 상태를 표현하기 위해 BITMAP으로 표현한다.
+ *; (NR_CPUS의 개수만큼 bit를 표현하기 위한 unsigned long 배열)
+ *; */
 typedef struct cpumask { DECLARE_BITMAP(bits, NR_CPUS); } cpumask_t;
 
 /**
@@ -822,6 +827,11 @@ static inline void reset_cpu_possible_mask(void)
 	bitmap_zero(cpumask_bits(&__cpu_possible_mask), NR_CPUS);
 }
 
+/*; Iamroot17A 2020.Dec.12 #2.4
+ *;
+ *; set_cpu_active(), set_cpu_present(), set_cpu_possible()은
+ *; set_cpu_online()과 달리 cpumask_set_cpu(), cpumask_clear_cpu()를 사용한다.
+ *; */
 static inline void
 set_cpu_possible(unsigned int cpu, bool possible)
 {

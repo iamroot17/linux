@@ -7,6 +7,11 @@
 
 #ifndef __ASSEMBLY__
 
+/*; Iamroot17A 2020.Dec.12 #2.3.3
+ *;
+ *; BITS_TO_LONGS는 해당 bit를 표현하기 위해 필요한 unsigned long의 개수를
+ *; 계산한다. BITS_TO_LONG == ceil(bits / (CHAR_BITS * sizeof(unsigned long)))
+ *; */
 #define DECLARE_BITMAP(name,bits) \
 	unsigned long name[BITS_TO_LONGS(bits)]
 

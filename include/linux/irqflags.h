@@ -183,6 +183,15 @@ do {						\
  */
 #ifdef CONFIG_TRACE_IRQFLAGS
 
+/*; Iamroot17A 2020.Dec.12 #1.1
+ *;
+ *; CONFIG_TRACE_IRQFLAGS_SUPPORT: TRACE_IRQFLAGS 가능한 architecture 여부
+ *; >> arch/xxx/Kconfig 참고 (있는 경우 지원되는 architecture)
+ *; CONFIG_TRACE_IRQFLAGS: 실제로 softirq, hardirq를 Trace하는지 여부
+ *; >> kernel/trace/Kconfig 참고 (IRQSOFF_TRACER 자동 선택)
+ *; >> Documentation/core-api/irq/irqflags-tracing.rst 참고
+ *; defconfig에서는 CONFIG_TRACE_IRQFLAGS_SUPPORT=y, CONFIG_TRACE_IRQFLAGS=n
+ *; */
 #define local_irq_enable()				\
 	do {						\
 		trace_hardirqs_on();			\

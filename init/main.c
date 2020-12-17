@@ -851,6 +851,10 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 
 	cgroup_init_early();
 
+	/*; Iamroot17A 2020.Dec.12 #1
+	 *;
+	 *; 현재 CPU의 IRQ exception 발생을 막는다.
+	 *; */
 	local_irq_disable();
 	early_boot_irqs_disabled = true;
 
@@ -858,7 +862,20 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	 * Interrupts are still disabled. Do necessary setups, then
 	 * enable them.
 	 */
+	/*; Iamroot17A 2020.Dec.12 #2
+	 *;
+	 *; boot CPU(primary_entry부터 현재 start_kernel까지 수행 중인 CPU)를
+	 *; 커널에서 관리할 수 있도록 CPU bitmap에서 설정해 준다.
+	 *; */
 	boot_cpu_init();
+	/*; Iamroot17A 2020.Dev.12 #3
+	 *;
+	 *; page_address_init()은 32bit 시스템은 HIGHMEM 영역을 사용할 때
+	 *; 초기화를 하지만, 현재 분석중인 64bit환경에서는 무의미하므로
+	 *; 자세하게 분석하지 않음.
+	 *; >> http://jake.dothome.co.kr/page_address_init/ 참고
+	 *; >> include/linux/mm.h 참고 (do { } while (0)로 선언되어있음)
+	 *; */
 	page_address_init();
 	pr_notice("%s", linux_banner);
 	early_security_init();

@@ -2473,6 +2473,14 @@ void set_cpu_online(unsigned int cpu, bool online)
 	 * concurrent hotplug operations.
 	 */
 	if (online) {
+		/*; Iamroot17A 2020.Dec.13 #2.3.1
+		 *;
+		 *; set_cpu_active(), set_cpu_present(), set_cpu_possible()은
+		 *; cpumast_set_cpu로 현재 state에 관계없이 overwrite를 하지만
+		 *; set_cpu_online()은 __num_online_cpus의 값 변경을 위해
+		 *; cpumask_test_and_set_cpu(), cpumask_test_and_clear_cpu()를
+		 *; 사용해야 함
+		 *; */
 		if (!cpumask_test_and_set_cpu(cpu, &__cpu_online_mask))
 			atomic_inc(&__num_online_cpus);
 	} else {
@@ -2486,9 +2494,18 @@ void set_cpu_online(unsigned int cpu, bool online)
  */
 void __init boot_cpu_init(void)
 {
+	/*; Iamroot17A 2020.Dec.13 #2.2
+	 *;
+	 *; SMP상황에서 현재 CPU ID(boot CPU인 아마도 0번)를 가져온다.
+	 *; */
 	int cpu = smp_processor_id();
 
 	/* Mark the boot cpu "present", "online" etc for SMP and UP case */
+	/*; Iamroot17A 2020.Dec.13 #2.3
+	 *;
+	 *; 현재 boot CPU의 state를 online, active, present, possible 설정한다.
+	 *; >> http://jake.dothome.co.kr/boot_cpu_init/ 참고
+	 *; */
 	set_cpu_online(cpu, true);
 	set_cpu_active(cpu, true);
 	set_cpu_present(cpu, true);

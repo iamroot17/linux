@@ -16,6 +16,12 @@
 #include <asm/cmpxchg.h>
 #include <asm/lse.h>
 
+/*; Iamroot17A 2020.Dec.12 #5
+ *;
+ *; 아래 ATOMIC_XXX macro를 통해 inline함수를 생성하는데, 그 실제 함수로
+ *; LSE 구현 방식의 atomic 연산, LL/SC 구현 방식의 atomic 연산 중 하나로
+ *; 연결된다.
+ *; */
 #define ATOMIC_OP(op)							\
 static inline void arch_##op(int i, atomic_t *v)			\
 {									\
@@ -37,6 +43,14 @@ static inline int arch_##op##name(int i, atomic_t *v)			\
 	return __lse_ll_sc_body(op##name, i, v);			\
 }
 
+/*; Iamroot17A 2020.Dec.12 #6
+ *;
+ *; Atomic fetch의 경우 함수 명의 postfix에 따라 barrier의 적용 여부가 구분된다.
+ *; (empty) : atomic 연산 얖/뒤로 모두 barrier가 사용된다. (lock-unlock)
+ *; _acquire: atomic 연산 뒤에서 barrier가 사용된다. (lock)
+ *; _release: atomic 연산 앞에서 barrier가 사용된다. (unlock)
+ *; _relaxed: atomic 연산 얖/뒤로 barrier가 사용되지 않는다.
+ *; */
 #define ATOMIC_FETCH_OPS(op)						\
 	ATOMIC_FETCH_OP(_relaxed, op)					\
 	ATOMIC_FETCH_OP(_acquire, op)					\
@@ -165,6 +179,11 @@ static inline long arch_atomic64_dec_if_positive(atomic64_t *v)
 /*
  * 64-bit arch_atomic operations.
  */
+/*; Iamroot17A 2020.Dec.12 #2.3.5.3
+ *;
+ *; 실제 arch_atomic64_XXX_XXXX macro는 위의 macro를 통해 생성된
+ *; inline 함수로 연결된다.
+ *; */
 #define ATOMIC64_INIT				ATOMIC_INIT
 #define arch_atomic64_read			arch_atomic_read
 #define arch_atomic64_set			arch_atomic_set

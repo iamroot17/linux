@@ -683,6 +683,12 @@ static __always_inline bool system_uses_irq_prio_masking(void)
 
 static inline bool system_has_prio_mask_debugging(void)
 {
+	/*; Iamroot17A 2020.Dec.12 #1.3.1
+	 *;
+	 *; defconfig에서 CONFIG_ARM64_DEBUG_PRIORITY_MASKING=n
+	 *; Short-circuit evaluation때문에 system_uses_irq_prio_masking()
+	 *; 수행되지 않음 => build image에 없는 것으로 보임.
+	 *; */
 	return IS_ENABLED(CONFIG_ARM64_DEBUG_PRIORITY_MASKING) &&
 	       system_uses_irq_prio_masking();
 }

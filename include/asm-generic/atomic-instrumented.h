@@ -1352,6 +1352,10 @@ atomic64_or(s64 i, atomic64_t *v)
 static __always_inline s64
 atomic64_fetch_or(s64 i, atomic64_t *v)
 {
+	/*; Iamroot17A 2020.Dec.12 #2.3.5.2
+	 *;
+	 *; KASAN, KCSAN에서 확인 작업이 수행된다. (생략함)
+	 *; */
 	instrument_atomic_write(v, sizeof(*v));
 	return arch_atomic64_fetch_or(i, v);
 }

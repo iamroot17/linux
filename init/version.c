@@ -43,6 +43,10 @@ struct uts_namespace init_uts_ns = {
 EXPORT_SYMBOL_GPL(init_uts_ns);
 
 /* FIXED STRINGS! Don't touch! */
+/*; Iamroot17A 2020.Dec.12 #4
+ *;
+ *; cat /proc/version 했을 때 나오는 문자열 (make menuconfig에서 설정됨)
+ *; */
 const char linux_banner[] =
 	"Linux version " UTS_RELEASE " (" LINUX_COMPILE_BY "@"
 	LINUX_COMPILE_HOST ") (" LINUX_COMPILER ") " UTS_VERSION "\n";

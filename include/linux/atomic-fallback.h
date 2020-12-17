@@ -2068,6 +2068,14 @@ static __always_inline s64
 atomic64_fetch_or(s64 i, atomic64_t *v)
 {
 	s64 ret;
+	/*; Iamroot17A 2020.Dec.12 #2.3.5.1
+	 *;
+	 *; atomic-fallback의 경우 atomic_XXX_relaxed()로 barrier없는
+	 *; atomic 연산을 사용한다. (각 architecture에서 barrier가 포함된
+	 *; atomic instruction의 존재 여부를 알 수 없기 때문)
+	 *; 앞/뒤로 pre_full_fence(), post_full_fence()를 이용하여 barrier를
+	 *; 사용하여 다른 CPU에서도 atomic한 연산 결과가 반영되도록 수정한다.
+	 *; */
 	__atomic_pre_full_fence();
 	ret = atomic64_fetch_or_relaxed(i, v);
 	__atomic_post_full_fence();

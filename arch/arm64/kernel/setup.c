@@ -96,6 +96,11 @@ void __init smp_setup_processor_id(void)
 	 * using percpu variable early, for example, lockdep will
 	 * access percpu variable inside lock_release
 	 */
+	/*; Iamroot17A 2020.Dec.12 #2.1
+	 *;
+	 *; boot_cpu_init() 이전에 여기에서 현재 CPU의 offset을 0번으로
+	 *; 설정했다. (TPIDR_EL1/EL2의 값을 0으로 설정)
+	 *; */
 	set_my_cpu_offset(0);
 	/*; Iamroot17A 2020.Nov.28 #5
 	 *;

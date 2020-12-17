@@ -41,6 +41,12 @@ extern unsigned long __per_cpu_offset[NR_CPUS];
  * translations for raw_cpu_ptr().
  */
 #ifndef arch_raw_cpu_ptr
+/*; Iamroot17A 2020.Dec.12 #2.2.6
+ *;
+ *; __my_cpu_offset()을 통해 per_cpu 변수의 주소를 가져오게 된다.
+ *; __my_cpu_offset()은 start_kernel()의 smp_setup_processor_id()에서 확인한
+ *; set_my_cpu_offset(0)와 같이 TPIDR_EL1/EL2값을 통해 가져온다.
+ *; */
 #define arch_raw_cpu_ptr(ptr) SHIFT_PERCPU_PTR(ptr, __my_cpu_offset)
 #endif
 

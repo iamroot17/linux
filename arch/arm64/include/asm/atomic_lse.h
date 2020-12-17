@@ -10,6 +10,13 @@
 #ifndef __ASM_ATOMIC_LSE_H
 #define __ASM_ATOMIC_LSE_H
 
+/*; Iamroot17A 2020.Dec.12 #5.3
+ *;
+ *; 아래 inline assembly 부분에서 LSE 방식은 atomic한 연산 부분에서 LSE에서
+ *; 추가된 명령어 1개만을 사용하는 것을 확인할 수 있다.
+ *; 해당 명령어 내부적으로 atomicity를 보장해주는 것으로 보임.
+ *; >> ARMv8 Architecture Reference Manual J1.1.3 aarch64/functions/memory/MemAtomic 참고
+ *; */
 #define ATOMIC_OP(op, asm_op)						\
 static inline void __lse_atomic_##op(int i, atomic_t *v)			\
 {									\
