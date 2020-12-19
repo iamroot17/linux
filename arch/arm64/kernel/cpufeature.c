@@ -1285,6 +1285,10 @@ has_useable_cnp(const struct arm64_cpu_capabilities *entry, int scope)
  */
 bool kaslr_requires_kpti(void)
 {
+	/*; Iamroot17A 2020.Dec.19 #4.1
+	 *;
+	 *; config에서 KASLR을 사용하지 않는다면 고려할 필요가 없으므로 FALSE
+	 *; */
 	if (!IS_ENABLED(CONFIG_RANDOMIZE_BASE))
 		return false;
 
@@ -1293,6 +1297,12 @@ bool kaslr_requires_kpti(void)
 	 * where available.
 	 */
 	if (IS_ENABLED(CONFIG_ARM64_E0PD)) {
+		/*; Iamroot17A 2020.Dec.19 #4.2
+		 *;
+		 *; ARMv8.5 extension에 추가된 E0PD 기능을 사용할 수 있는 경우
+		 *; EL0에서 하위 주소 영역에 대한 접근을 차단할 수 있으므로
+		 *; KPTI보다 효율적으로 Meltdown 취약점을 대처하게 되므로 FALSE
+		 *; */
 		u64 mmfr2 = read_sysreg_s(SYS_ID_AA64MMFR2_EL1);
 		if (cpuid_feature_extract_unsigned_field(mmfr2,
 						ID_AA64MMFR2_E0PD_SHIFT))
@@ -1303,6 +1313,12 @@ bool kaslr_requires_kpti(void)
 	 * Systems affected by Cavium erratum 24756 are incompatible
 	 * with KPTI.
 	 */
+	/*; Iamroot17A 2020.Dec.19 #4.3
+	 *;
+	 *; CPU 구현 상의 버그로 인해 KPTI를 사용할 수 없는 경우 FALSE
+	 *; (해당 Erratum은 Cavium 제조사의 CPU에서만 발생)
+	 *; >> Documentation/arm64/siliton-errata.rst 참고
+	 *; */
 	if (IS_ENABLED(CONFIG_CAVIUM_ERRATUM_27456)) {
 		extern const struct midr_range cavium_erratum_27456_cpus[];
 
@@ -1311,6 +1327,11 @@ bool kaslr_requires_kpti(void)
 			return false;
 	}
 
+	/*; Iamroot17A 2020.Dec.19 #4.4
+	 *;
+	 *; 위의 FALSE 경우의 수에 모두 해당하지 않았다면, KASLR의 적용 여부를
+	 *; 확인한다. 만약 KASLR이 적용되었다면 offset의 값이 0 이상이 된다.
+	 *; */
 	return kaslr_offset() > 0;
 }
 

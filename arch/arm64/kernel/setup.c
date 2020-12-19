@@ -325,6 +325,13 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
 	 *; */
 	init_mm.brk	   = (unsigned long) _end;
 
+	/*; Iamroot17A 2020.Dec.19 #3
+	 *;
+	 *; 현재 boot_command_line의 값은 update되지 않았지만, 그 주소값만 미리
+	 *; cmdline_p에 설정해 놓는다.
+	 *; boot_command_line은 setup_machine_fdt()에서 update되는 것으로 예상됨
+	 *; >> init/main.c 참고 (boot_command_line 정의)
+	 *; */
 	*cmdline_p = boot_command_line;
 
 	/*
@@ -332,6 +339,17 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
 	 * mappings from the start, avoiding the cost of rewriting
 	 * everything later.
 	 */
+	/*; Iamroot17A 2020.Dec.19 #4
+	 *;
+	 *; KASLR에서 KPTI가 필요한지 확인한다. (KASLR 우회를 어렵게 하여 보안 강화)
+	 *; KPTI(Kernel Page-Table Isolation): meltdown 보안 취약점을 방지하기
+	 *; 위한 방법 중 하나로 이전엔 KAISER라는 기술로 불렸음.
+	 *; KAISER(Kernel Address Isolation to have Side-channels Efficiently Removed)
+	 *; KPTI 적용 시, 유저 영역과 커널 영역의 분리를 더 강화시켜 줌.
+	 *; >> https://sata.kr/entry/%EB%B3%B4%EC%95%88-Issue-Meltdown%EB%A9%9C%ED%8A%B8%EB%8B%A4%EC%9A%B4-%EC%B7%A8%EC%95%BD%EC%A0%90%EC%9D%84-%ED%8C%8C%ED%97%A4%EC%B3%90%EB%B3%B4%EC%9E%90-1 참고 (Meltdown 및 KPTI 설명)
+	 *; >> https://lwn.net/Articles/738975/ 참고 (KAISER 소개)
+	 *; >> https://www.programmersought.com/article/11512728259/ 참고 (ARM64의 meltdown 취약점 보완방법 설명)
+	 *; */
 	arm64_use_ng_mappings = kaslr_requires_kpti();
 
 	early_fixmap_init();
