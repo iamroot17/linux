@@ -311,6 +311,13 @@ SYM_CODE_END(preserve_boot_args)
 	.macro populate_entries, tbl, rtbl, index, eindex, flags, inc, tmp1
 .Lpe\@:	phys_to_pte \tmp1, \rtbl
 	orr	\tmp1, \tmp1, \flags	// tmp1 = table entry
+	/*; Iamroot17A2 2020.Dec.19
+	 *; 각 배열에 저장하는 과정을 표현하는 어셈블리 코드다.
+	 *; ```c
+	 *; tbl[index << 3] = tmp1;
+	 *; ```
+	 *; 현재 64bit이므로 Logical shift-left 3 (주소값 + =8)
+	 *; */
 	str	\tmp1, [\tbl, \index, lsl #3]
 	add	\rtbl, \rtbl, \inc	// rtbl = pa next level
 	add	\index, \index, #1

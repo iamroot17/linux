@@ -400,6 +400,9 @@
 #define SYS_AMCR_EL0			SYS_AM_EL0(2, 0)
 #define SYS_AMCFGR_EL0			SYS_AM_EL0(2, 1)
 #define SYS_AMCGCR_EL0			SYS_AM_EL0(2, 2)
+/*; Iamroot17A2 2020.Dec.19
+ *; #define SYS_AMUSERENR_EL0	sys_reg(3, 3, 13, 2, 3)
+ *; */
 #define SYS_AMUSERENR_EL0		SYS_AM_EL0(2, 3)
 #define SYS_AMCNTENCLR0_EL0		SYS_AM_EL0(2, 4)
 #define SYS_AMCNTENSET0_EL0		SYS_AM_EL0(2, 5)
