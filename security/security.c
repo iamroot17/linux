@@ -361,13 +361,36 @@ static void __init ordered_lsm_init(void)
 int __init early_security_init(void)
 {
 	int i;
+	/*; Iamroot17A 2020.Dec.19 #1.1
+	 *;
+	 *; security_hook 목록을 hash list로 관리하는 것으로 보인다.
+	 *; 참고로 security_hook_heads는 구조체로 정의되어 있지만, 모든 멤버가
+	 *; struct hlist_head 타입으로 정의되어 있기 때문에 메모리상 배치에서는
+	 *; struct hlist_head의 배열과 같은 모양을 가지게 된다.
+	 *; 이를 이용하여 모든 멤버의 hash list를 초기화하는 트릭이다.
+	 *; */
 	struct hlist_head *list = (struct hlist_head *) &security_hook_heads;
 	struct lsm_info *lsm;
 
+	/*; Iamroot17A 2020.Dec.19 #1.2
+	 *;
+	 *; 위에서 이야기한 트릭을 사용하므로 include/linux/kernel.h가 제공하는
+	 *; ARRAY_SIZE 등의 macro를 활용할 수 없다.
+	 *; */
 	for (i = 0; i < sizeof(security_hook_heads) / sizeof(struct hlist_head);
 	     i++)
 		INIT_HLIST_HEAD(&list[i]);
 
+	/*; Iamroot17A 2020.Dec.19 #1.3
+	 *;
+	 *; 위의 security_hook_heads 초기화 과정과 비슷하게
+	 *; struct lsm_info __early_lsm_XXX들을 초기화한다.
+	 *; __start_early_lsm_info와 __end_early_lsm_info는 vmlinux.lds.h에서
+	 *; .early_lsm_info.init 섹션의 시작과 끝의 주소를 나타내며,
+	 *; 반복문의 대상이 되는 __early_lsm_XXX들은 .early_lsm_info.init에
+	 *; 정의되게 한다.
+	 *; >> include/asm-generic/vmlinux.lds.h 참고 (EARLY_LSM_TABLE 정의 부분)
+	 *; */
 	for (lsm = __start_early_lsm_info; lsm < __end_early_lsm_info; lsm++) {
 		if (!lsm->enabled)
 			lsm->enabled = &lsm_enabled_true;

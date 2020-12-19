@@ -1520,14 +1520,36 @@
  * @perf_event_write:
  * 	Write perf_event security info if allowed.
  */
+/*; Iamroot17A 2020.Dec.19 #1.1.1
+ *;
+ *; 기존 cgroup에서 분석했던 cgroup 서브시스템의 코드 자동 생성 과정과 비슷하게
+ *; 사용할 모듈에 대한 정의를 헤더에서 정의하고, 매크로를 통해 자동 생성하는
+ *; 방식이다.
+ *; >> Iamroot17A 2020.Dec.05 #1.1.1 참고
+ *; 근데 왜 여기는 include를 ""로 하는건지는 의문
+ *; */
 union security_list_options {
 	#define LSM_HOOK(RET, DEFAULT, NAME, ...) RET (*NAME)(__VA_ARGS__);
+	/*; ex. lsm_hook_defs.h의 앞부분 자동 생성 예시
+	 *; ```c
+	 *; int (*binder_set_context_mgr)(struct task_struct *mgr);
+	 *; int (*binder_transaction)(struct task_struct *from, struct task_struct *to);
+	 *; int (*binder_transfer_binder)(struct task_struct *from, struct task_struct *to);
+	 *; ```
+	 *; */
 	#include "lsm_hook_defs.h"
 	#undef LSM_HOOK
 };
 
 struct security_hook_heads {
 	#define LSM_HOOK(RET, DEFAULT, NAME, ...) struct hlist_head NAME;
+	/*; ex. lsm_hook_defs.h의 앞부분 자동 생성 예시
+	 *; ```c
+	 *; struct hlist_head binder_set_context_mgr;
+	 *; struct hlist_head binder_transaction;
+	 *; struct hlist_head binder_transfer_binder;
+	 *; ```
+	 *; */
 	#include "lsm_hook_defs.h"
 	#undef LSM_HOOK
 } __randomize_layout;
@@ -1601,6 +1623,13 @@ extern struct lsm_info __start_early_lsm_info[], __end_early_lsm_info[];
 		__used __section(.lsm_info.init)			\
 		__aligned(sizeof(unsigned long))
 
+/*; Iamroot17A 2020.Dec.19 #1.3.1
+ *;
+ *; 아래 DEFINE_EARLY_LSM 매크로를 통해 각 __early_lsm_XXX 변수를 생성하는 것을
+ *; 확인할 수 있다. 중간의 __section(.early_lsm_info.init)으로 해당 변수들은
+ *; .early_lsm_info.init 섹션에 저장되는 것을 알 수 있다.
+ *; >> include/asm-generic/vmlinux.lds.h 참고 (EARLY_LSM_TABLE 정의 부분)
+ *; */
 #define DEFINE_EARLY_LSM(lsm)						\
 	static struct lsm_info __early_lsm_##lsm			\
 		__used __section(.early_lsm_info.init)			\
