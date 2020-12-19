@@ -868,7 +868,7 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	 *; 커널에서 관리할 수 있도록 CPU bitmap에서 설정해 준다.
 	 *; */
 	boot_cpu_init();
-	/*; Iamroot17A 2020.Dev.12 #3
+	/*; Iamroot17A 2020.Dec.12 #3
 	 *;
 	 *; page_address_init()은 32bit 시스템은 HIGHMEM 영역을 사용할 때
 	 *; 초기화를 하지만, 현재 분석중인 64bit환경에서는 무의미하므로
