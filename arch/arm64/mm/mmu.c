@@ -1178,14 +1178,36 @@ static inline pte_t * fixmap_pte(unsigned long addr)
  */
 void __init early_fixmap_init(void)
 {
+	/*; Iamroot17A 2020.Dec.19 #5.1
+	 *;
+	 *; 현재 커널에서 paging level과 각 관계는 아래와 같다.
+	 *; pgd (-> p4d) -> pud -> pmd -> pte
+	 *; x86_64의 경우 최대 5 level paging을 지원하지만 ARM64에서는 현재
+	 *; 4 level paging까지만 지원한다.
+	 *; 5 level paging이 아닌 환경에서는 p4d를 pgd와 동일하게 하여 호환성을
+	 *; 확보한다.
+	 *; >> include/asm-generic/pgtable-nop4d.h 참고
+	 *; >> 관련 commit: e9f6376858b9799148d07e58b72b681d4b8fa4c7
+	 *; */
 	pgd_t *pgdp;
 	p4d_t *p4dp, p4d;
 	pud_t *pudp;
 	pmd_t *pmdp;
 	unsigned long addr = FIXADDR_START;
 
+	/*; Iamroot17A 2020.Dec.19 #5.2
+	 *;
+	 *; Fixmap에 대한 pgd의 주소를 알아낸다. (init_mm.pgd에서 indexing)
+	 *; >> include/linux/pgtable.h 참고 (pgd_offset_k macro 해석)
+	 *; */
 	pgdp = pgd_offset_k(addr);
 	p4dp = p4d_offset(pgdp, addr);
+	/*; Iamroot17A 2020.Dec.19 #5.3
+	 *;
+	 *; Fixmap에 대한 p4d(로 표현된 pgd)의 주소 값을 읽어온다.
+	 *; 아래 pud의 값을 읽어 오는 것과 달리 조건문 분기가 있어
+	 *; 따로 p4d 변수에 읽어온 값을 저장한다.
+	 *; */
 	p4d = READ_ONCE(*p4dp);
 	if (CONFIG_PGTABLE_LEVELS > 3 &&
 	    !(p4d_none(p4d) || p4d_page_paddr(p4d) == __pa_symbol(bm_pud))) {
@@ -1194,9 +1216,28 @@ void __init early_fixmap_init(void)
 		 * share the top level pgd entry, which should only happen on
 		 * 16k/4 levels configurations.
 		 */
+		/*; Iamroot17A 2020.Dec.19 #5.3.1
+		 *;
+		 *; 커널이 16k paging 상태에서 4 level paging을 사용하게 되면
+		 *; fixmap과 커널의 pgd entry가 공유되게 된다.
+		 *; if문에서 확인한 조건은 아래와 같다. (NOT(OR)를 풀어 씀)
+		 *;  4 level paging 이상이면서, (CONFIG_PGTABLE_LEVELS > 3)
+		 *;  p4d에 이미 주소가 매핑되어 있고, (!p4d_none(p4d))
+		 *;  p4d가 매핑된 물리 주소가 bm_pud 테이블이 아닌 경우다.
+		 *;   (p4d_page_addr(p4d) != __pa_symbol(bm_pud))
+		 *; 이와 같은 상황이 발생 할 수 있는 주소 매핑은 16k paging뿐이다.
+		 *; 이미 p4d의 값이 입력되어 있으므로 pud의 주소값을 가져온다.
+		 *; >> http://www.iamroot.org/xe/index.php?document_srl=209118 참고
+		 *; */
 		BUG_ON(!IS_ENABLED(CONFIG_ARM64_16K_PAGES));
 		pudp = pud_offset_kimg(p4dp, addr);
 	} else {
+		/*; Iamroot17A 2020.Dec.19 #5.3.2
+		 *;
+		 *; 현재 fixmap의 p4d에 이미 주소가 매핑되어 있지 않은 경우
+		 *; __p4d_populate를 통해 해당 엔트리를 매핑한다.
+		 *; 이와 같은 방식으로 아래 pud도 동일하게 동작한다.
+		 *; */
 		if (p4d_none(p4d))
 			__p4d_populate(p4dp, __pa_symbol(bm_pud), PUD_TYPE_TABLE);
 		pudp = fixmap_pud(addr);

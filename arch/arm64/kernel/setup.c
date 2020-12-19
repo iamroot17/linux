@@ -352,6 +352,22 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
 	 *; */
 	arm64_use_ng_mappings = kaslr_requires_kpti();
 
+	/*; Iamroot17A 2020.Dec.19 #5
+	 *;
+	 *; 이전 head.S에서 kaslr_early_init()이 호출되었다면 FDT를 읽기 위해서
+	 *; 이미 early_fixmap_init()이 호출되었을 것이다.
+	 *; 아래와 같이 조건부 컴파일이 가능한데 왜 중복호출하는지 의문임.
+	 *; ```c
+	 *; #ifndef CONFIG_RANDOMIZE_BASE
+	 *;	early_fixmap_init()
+	 *; #endif
+	 *; ```
+	 *; 가설 1) KASLR 적용시 다시 page directory 생성 과정에서 fixmap에 대한
+	 *;         pgdir이 변경되어 다시 fixmap에 대한 init이 필요하다.
+	 *; 가설 2) early_fixmap_init() 내부 구현을 보면 각 level page dir에서
+	 *;         주소가 매핑되어 있지 않은 경우를 확인하므로 성능상 큰 차이가 없다.
+	 *; >> Iamroot17A 2020.Nov.21 #8.2 상단 참고 (early_fixmap_init() 호출 지점)
+	 *; */
 	early_fixmap_init();
 	early_ioremap_init();
 

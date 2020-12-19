@@ -11,6 +11,19 @@
 
 #include <asm/types.h>
 
+/*; Iamroot17A 2020.Dec.19 #5.1.1
+ *;
+ *; page table에 대한 type은 아래와 같은 방식으로 정의된다.
+ *; 1. 각 page table / page의 주소를 기록할 수 있는 자료형을 typedef로 정의.
+ *;    각 자료형은 architecture에 따라 주소의 크기가 변경될 수 있음
+ *; 2. 해당 type 변수 1개만 멤버로 갖는 struct를 typedef로 정의.
+ *;    이전 typedef된 자료형에, 다른 이름의 멤버 변수를 사용함으로서
+ *;    다른 level의 주소에 대해 type casting이 불가능하도록 함.
+ *; 3. 각각 getter, setter 역할을 하는 macro를 이용하도록 함.
+ *;    macro의 read/write는 type casting이 가능하되, 직접적으로 struct 간
+ *;    casting은 불가능 하게 함.
+ *; >> Documentation/process/coding-style.rst 참고 (5 Typedefs 부분)
+ *; */
 typedef u64 pteval_t;
 typedef u64 pmdval_t;
 typedef u64 pudval_t;
