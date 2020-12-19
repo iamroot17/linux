@@ -298,9 +298,31 @@ u64 cpu_logical_map(int cpu)
 
 void __init __no_sanitize_address setup_arch(char **cmdline_p)
 {
+	/*; Iamroot17A 2020.Dec.19 #2
+	 *;
+	 *; struct mm_struct init_mm의 일부 멤버들은 초기 값이 정의되어있다.
+	 *; (Compile-time에 정의됨)
+	 *; 하지만 아래 _text, _etext, _edata, _end는 runtime에 알 수 있는
+	 *; 가상주소 값이므로 함수를 통해 초기화해 주는 것으로 보인다.
+	 *; >> mm/init-mm.c 참고 (init_mm의 멤버 초기 값 정의)
+	 *; >> arch/arm64/kernel/vmlinux.lds.S 참고 (_text, _etext 등 정의)
+	 *; */
 	init_mm.start_code = (unsigned long) _text;
 	init_mm.end_code   = (unsigned long) _etext;
+	/*; 왜 init_mm.start_data는 초기화하지 않는 것일까?
+	 *; 직접 돌려본 결과 init_mm.start_data는 여전히 0으로 유지됨
+	 *; 아마도 init_mm은 start_data를 사용할 일이 없는 것으로 보임.
+	 *; (하지만 struct mm_struct의 start_data를 사용하긴 하는 것 같음)
+	 *; */
 	init_mm.end_data   = (unsigned long) _edata;
+	/*; brk: break를 뜻하는 것으로 보임.
+	 *; 데이터 세그먼트의 끝을 가리키는 것으로, user 영역에서는 heap의
+	 *; 경계선 역할을 하는 것으로 보임. (malloc이 내부적으로 brk, sbrk 사용)
+	 *; 커널의 메모리 관리는 다를 것으로 예상됨.
+	 *; _end의 정의에 따르면 커널의 메모리 제일 끝을 가리키고 있음. (debug 제외)
+	 *; >> man 2 brk 참고 (SYSCALL 매뉴얼)
+	 *; >> man 3 malloc 참고 (brk, sbrk 사용에 대한 설명)
+	 *; */
 	init_mm.brk	   = (unsigned long) _end;
 
 	*cmdline_p = boot_command_line;
