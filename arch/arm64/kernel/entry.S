@@ -114,6 +114,11 @@ alternative_else_nop_endif
 	 *; overflow가 발생할 정도로 크기 않기 때문으로 예상됨.
 	 *; >> https://en.wikipedia.org/wiki/XOR_swap_algorithm#Variations 참고
 	 *; */
+	/*; Iamroot17A2 2020.Dec.26
+	 *; when CONFIG_VMAP_STACK is enabled, sp is initialized at 32K * N + 16K
+	 *; Refer to kernel/fork.c:243
+	 *; THREAD_SIZE=16K, THREAD_ALIGN=32K
+	 *; */
 	add	sp, sp, x0			// sp' = sp + x0
 	sub	x0, sp, x0			// x0' = sp' - x0 = (sp + x0) - x0 = sp
 	/*; Iamroot17A 2020.Nov.21 #1.1.5
@@ -219,6 +224,12 @@ alternative_cb_end
 
 	.if	\el == 0
 	clear_gp_regs
+	/*; IamrootT17A2 2020.Dec.26
+	 *; sp_el0 is used as user stack pointer by EL0.
+	 *; Save this info into x21, and then use sp_el0 to indicate current
+	 *; task in EL1. current task is saved in
+	 *; __entry_task[per_cpu_offset(cpu)] by __switch_to()
+	 *; */
 	mrs	x21, sp_el0
 	ldr_this_cpu	tsk, __entry_task, x20
 	msr	sp_el0, tsk
