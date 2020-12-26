@@ -19,6 +19,9 @@
 
 #ifndef __ASSEMBLY__
 
+/*; Iamroot17A2 2020.Dec.26
+ *; (unsigned long)(void *)(x) >= 0xFFFFFFFF_FFFFF001
+ *; */
 #define IS_ERR_VALUE(x) unlikely((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
 
 static inline void * __must_check ERR_PTR(long error)
