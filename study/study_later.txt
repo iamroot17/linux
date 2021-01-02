@@ -5,6 +5,9 @@ work
 idr
 radix tree & xarray
 
+// patches
+trampoline page table
+SSBD(speculative store bypass disable)
 
 // less important
 pr_debug

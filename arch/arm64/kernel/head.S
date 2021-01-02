@@ -589,6 +589,11 @@ SYM_FUNC_END(__create_page_tables)
  *
  *   x0 = __PHYS_OFFSET
  */
+/*; Iamroot17A2 2021.Jan.02
+ *;  ffff800011b00000 D init_stack
+ *;  ffff800011b00000 D init_thread_union
+ *;  ffff800011b04000 D __end_init_task <-- sp start(align: 0x8000)
+ *; */
 SYM_FUNC_START_LOCAL(__primary_switched)
 	adrp	x4, init_thread_union
 	add	sp, x4, #THREAD_SIZE

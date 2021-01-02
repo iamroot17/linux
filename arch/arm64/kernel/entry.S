@@ -69,6 +69,10 @@
 	 *; (C++ 함수 정의에서 default argument와 같은 역할)
 	 *; >> Iamroot17A 2020.Nov.21 #1.2 참고
 	 *; */
+	/*; Iamroot17A2 2021.Jan.02
+	 *; PC는 ELR_EL1에, PSTATE는 SPSR_EL1에, SP는 SP_EL1에 저장된다.
+	 *; el = 0, label = irq
+	 *; */
 	.macro kernel_ventry, el, label, regsize = 64
 	.align 7
 	/*; Iamroot17A 2020.Nov.21 #1.1.2
@@ -118,6 +122,44 @@ alternative_else_nop_endif
 	 *; when CONFIG_VMAP_STACK is enabled, sp is initialized at 32K * N + 16K
 	 *; Refer to kernel/fork.c:243
 	 *; THREAD_SIZE=16K, THREAD_ALIGN=32K
+	 *; */
+	/*; Iamroot17A2 2021.Jan.02
+	 *; when CONFIG_VMAP_STACK is enabled, SP is initialized at 32K * N + 16K
+	 *; Refer to kernel/fork.c:243
+	 *; THREAD_SIZE=16K, THREAD_ALIGN=32K
+	 *; Valid sp should have '0' in its 14'th bit.
+	 *;
+	 *; (1) init_task
+	 *;	(a) allocation:
+	 *;	arch/arm64/kernel/vmlinux.lds.S
+	 *;		RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_ALIGN)
+	 *;	include/asm-generic/vmlinux.lds.h
+	 *;		#define RW_DATA(cacheline, pagealigned, inittask)	\
+	 *;			INIT_TASK_DATA(inittask)			\
+	 *;	include/asm-generic/vmlinux.lds.h
+	 *;		#define INIT_TASK_DATA(align)				\
+	 *;			__start_init_task = .;				\
+	 *;			init_thread_union = .;				\
+	 *;			init_stack = .;					\
+	 *;			. = __start_init_task + THREAD_SIZE;		\
+	 *;	(b) initialization:
+	 *;	arch/arm64/kernel/head.S - __primary_switched
+	 *;		sp = init_thread_union + THREAD_SIZE
+	 *;
+	 *; (2) other tasks
+	 *;	(a) allocation:
+	 *;	kernel/fork.c - alloc_thread_stack_node
+	 *;		stack = __vmalloc_node_range(THREAD_SIZE, THREAD_ALIGN,
+	 *;	(b) initialization:
+	 *;	arch/arm64/kernel/process.c - copy_thread
+	 *;		struct pt_regs *childregs = task_pt_regs(p);
+	 *;		p->thread.cpu_context.sp = (unsigned long)childregs;
+	 *;	arch/arm64/include/asm/processor.h
+	 *;		#define task_pt_regs(p) \
+	 *;			((struct pt_regs *)(THREAD_SIZE + task_stack_page(p)) - 1)
+	 *;	(c) restored in context switch:
+	 *;	arch/arm64/kernel/entry.S - cpu_switch_to
+	 *;		ldp	x29, x9, [x8], #16
 	 *; */
 	add	sp, sp, x0			// sp' = sp + x0
 	sub	x0, sp, x0			// x0' = sp' - x0 = (sp + x0) - x0 = sp
@@ -279,6 +321,37 @@ alternative_else_nop_endif
 #endif
 
 	stp	x22, x23, [sp, #S_PC]
+
+	/*; Iamroot17A2 2021.Jan.02
+	 *; initial IRQ
+	 *; ---------------------- orig sp(1) (32K * n + 16K)
+	 *; 0, 0 (16 byte)
+	 *; ---------------------- <- x29(1) (pt_regs->stackframe)
+	 *;
+	 *; x22(elr_el1), x23(spsr_el1)
+	 *; lr, orig sp_el0
+	 *; x28, x29(0)
+	 *; ...
+	 *; x2, x3
+	 *; x0, x1
+	 *; ---------------------- new sp(2) (sp - s_frame_size) <-
+	 *;
+	 *;
+	 *; ...
+	 *;
+	 *; new IRQ
+	 *; ---------------------- sp(3): sp when new IRQ occured.
+	 *; x29(1), x22(elr_el1)
+	 *; ---------------------- <- x29(2) (pt_regs->stackframe)
+	 *;
+	 *; x22(elr_el1), x23(spsr_el1)
+	 *; lr, sp(3)
+	 *; x28, x29
+	 *; ...
+	 *; x2, x3
+	 *; x0, x1
+	 *; ---------------------- new sp (sp(3) - s_frame_size)
+	 *; */
 
 	/* Not in a syscall by default (el0_svc overwrites for real syscall) */
 	.if	\el == 0
@@ -553,6 +626,9 @@ SYM_CODE_START(vectors)
 	kernel_ventry	1, error			// Error EL1h
 
 	kernel_ventry	0, sync				// Synchronous 64-bit EL0
+	/*; Iamroot17A2 2021.Jan.02
+	 *; EL0에서 인터럽트 발생하는 경우에 대해 분석하도록 한다.
+	 *; */
 	kernel_ventry	0, irq				// IRQ 64-bit EL0
 	kernel_ventry	0, fiq_invalid			// FIQ 64-bit EL0
 	kernel_ventry	0, error			// Error 64-bit EL0
