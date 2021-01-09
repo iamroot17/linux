@@ -8,6 +8,7 @@ radix tree & xarray
 // patches
 trampoline page table
 SSBD(speculative store bypass disable)
+restartable sequence (task_struct->rseq)
 
 // less important
 pr_debug

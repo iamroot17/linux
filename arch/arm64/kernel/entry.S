@@ -72,6 +72,7 @@
 	/*; Iamroot17A2 2021.Jan.02
 	 *; PC는 ELR_EL1에, PSTATE는 SPSR_EL1에, SP는 SP_EL1에 저장된다.
 	 *; el = 0, label = irq
+	 *; pt_regs를 위한 공간 할당 및 stack overflow를 확인함
 	 *; */
 	.macro kernel_ventry, el, label, regsize = 64
 	.align 7
@@ -244,6 +245,25 @@ alternative_cb_end
 #endif
 	.endm
 
+	/*; Iamroot17A2 2021.Jan.09
+	 *; 1. store registers on stack(pt_regs)
+	 *; (2~8: for el0)
+	 *; 2. zero all registers
+	 *; 3. store user stack pointer(pt_regs)
+	 *; 4. read current task from per_cpu variable and store it in sp_el0
+	 *; 5. disable software step(debugging)
+	 *; 6. handle spectre security issue
+	 *; 7. install pointer authentication keys for kernel.
+	 *; 8. set shadow callstack
+	 *; 9. store lr, previous sp on stack(pt_regs)
+	 *; 10. el0: store zero on pt_regs->stackframe
+	 *; 11. el1: store x29 on pt_regs->stackframe
+	 *; 12. store &stackframe in x29
+	 *; 13. set PAN(Privileged Access Never)
+	 *; 14. store elr, spsr(pt_regs)
+	 *; 15. el0: store NO_SYSCALL(-1) on stack(pt_regs)
+	 *; 16. set PMR(Priority Masking Register)
+	 *; */
 	.macro	kernel_entry, el, regsize = 64
 	.if	\regsize == 32
 	mov	w0, w0				// zero upper 32 bits of x0
@@ -523,11 +543,17 @@ SYM_CODE_END(__swpan_exit_el0)
 	 * If the top ~(THREAD_SIZE - 1) bits match, we are on a task stack,
 	 * and should switch to the irq stack.
 	 */
+	/*; Iamroot17A2 2020.Jan.09
+	 *; task_struct->stack = 0xffffffc0_ffff8000
+	 *; sp 0xffffffc0_ffffc000 ~ grows down
+	 *; sp = 0xffffffc0_ffffabcd
+	 *; */
 	ldr	x25, [tsk, TSK_STACK]
 	eor	x25, x25, x19
 	and	x25, x25, #~(THREAD_SIZE - 1)
 	cbnz	x25, 9998f
 
+	/*; irq_stack for cpu0 : 0x10000 ~ 0x14000 */
 	ldr_this_cpu x25, irq_stack_ptr, x26
 	mov	x26, #IRQ_STACK_SIZE
 	add	x26, x25, x26

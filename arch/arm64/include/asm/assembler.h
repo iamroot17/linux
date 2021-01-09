@@ -41,6 +41,22 @@
 	.endm
 
 	/* IRQ is the lowest priority flag, unconditionally unmask the rest. */
+/*; Iamroot17A2 2021.Jan.09
+ *; DAIF, Interrupt Mask Bits
+ *; Allows access to the interrupt mask bits.
+ *;  D, bit [9]: Debug exceptions.
+ *;  A, bit [8]: SError (System Error) mask bit.
+ *;  I, bit [7]: IRQ mask bit.
+ *;  F, bit [6]: FIQ mask bit.
+ *; value:
+ *;  0 Exception not masked.
+ *;  1 Exception masked.
+ *;
+ *; system registers:
+ *;  daif
+ *;  daifset
+ *;  daifclr
+ *; */
 	.macro enable_da_f
 	msr	daifclr, #(8 | 4 | 1)
 	.endm
