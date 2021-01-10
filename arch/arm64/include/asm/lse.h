@@ -19,6 +19,23 @@
 extern struct static_key_false cpu_hwcap_keys[ARM64_NCAPS];
 extern struct static_key_false arm64_const_caps_ready;
 
+/*; Iamroot17A 2020.Dec.19 #6
+ *;
+ *; __lse_ll_sc_body() 매크로에 따르면 system_uses_lse_atomics()을 통해 LSE 지원
+ *; 여부를 확인하고, 조건에 따라 LSE방식으로 호출할 지, LL/SC방식으로 호출할지
+ *; 결정하게 된다. 실제 지원 여부는 runtime에 결정되기 때문에 어떤 방식의
+ *; atomic operation 구현이 사용될 지는 알 수 없다.
+ *;
+ *; inline assembly에서 단일 instruction의 경우 ALTERNATIVE 매크로를 사용하여
+ *; 명령어를 교체할 수 있지만, atomic operation의 구현은 여러 instruction을
+ *; 사용하며, 길이가 다르기 때문에 교체하기 복잡하다.
+ *;
+ *; static key라는 기술은 이와 같이 runtime에 발생하는 branch의 부하를 줄이기
+ *; 위해 사용된다.
+ *; >> http://jake.dothome.co.kr/static-keys/ 참고
+ *; >> include/linux/jump_label.h 참고 (static_branch_likely 정의 상단 설명 부분)
+ *; >> arch/arm64/include/asm/jump_label.h 참고 (static key 기술을 통한 branch 코드)
+ *; */
 static inline bool system_uses_lse_atomics(void)
 {
 	return (static_branch_likely(&arm64_const_caps_ready)) &&

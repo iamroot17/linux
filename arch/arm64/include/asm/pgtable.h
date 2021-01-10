@@ -616,6 +616,15 @@ static inline unsigned long pud_page_vaddr(pud_t pud)
 
 static inline void set_p4d(p4d_t *p4dp, p4d_t p4d)
 {
+	/*; Iamroot17A 2020.Dec.19 #5.3.2.2
+	 *;
+	 *; 만약 p4d 엔트리를 매핑할 page dir가 swapper_pg_dir인 경우
+	 *; set_swapper_pgd()를 사용하여 엔트리를 매핑하게 된다.
+	 *; early_fixmap_init()에서 호출된 __p4d_populate()의 인자에 따르면
+	 *; p4dp는 init_mm.pgd에서 indexing한 p4d 주소인데, 해당 주소는
+	 *; swapper_pgdir에 속한 주소가 아니므로 if문에 진입하지 않는다.
+	 *; >> Iamroot17A 2020.Dec.19 #5.3.2.3 참고 (init_mm.pgd 정의)
+	 *; */
 	if (in_swapper_pgdir(p4dp)) {
 		set_swapper_pgd((pgd_t *)p4dp, __pgd(p4d_val(p4d)));
 		return;

@@ -298,11 +298,40 @@ u64 cpu_logical_map(int cpu)
 
 void __init __no_sanitize_address setup_arch(char **cmdline_p)
 {
+	/*; Iamroot17A 2020.Dec.19 #2
+	 *;
+	 *; struct mm_struct init_mm의 일부 멤버들은 초기 값이 정의되어있다.
+	 *; (Compile-time에 정의됨)
+	 *; 하지만 아래 _text, _etext, _edata, _end는 runtime에 알 수 있는
+	 *; 가상주소 값이므로 함수를 통해 초기화해 주는 것으로 보인다.
+	 *; >> mm/init-mm.c 참고 (init_mm의 멤버 초기 값 정의)
+	 *; >> arch/arm64/kernel/vmlinux.lds.S 참고 (_text, _etext 등 정의)
+	 *; */
 	init_mm.start_code = (unsigned long) _text;
 	init_mm.end_code   = (unsigned long) _etext;
+	/*; 왜 init_mm.start_data는 초기화하지 않는 것일까?
+	 *; 직접 돌려본 결과 init_mm.start_data는 여전히 0으로 유지됨
+	 *; 아마도 init_mm은 start_data를 사용할 일이 없는 것으로 보임.
+	 *; (하지만 struct mm_struct의 start_data를 사용하긴 하는 것 같음)
+	 *; */
 	init_mm.end_data   = (unsigned long) _edata;
+	/*; brk: break를 뜻하는 것으로 보임.
+	 *; 데이터 세그먼트의 끝을 가리키는 것으로, user 영역에서는 heap의
+	 *; 경계선 역할을 하는 것으로 보임. (malloc이 내부적으로 brk, sbrk 사용)
+	 *; 커널의 메모리 관리는 다를 것으로 예상됨.
+	 *; _end의 정의에 따르면 커널의 메모리 제일 끝을 가리키고 있음. (debug 제외)
+	 *; >> man 2 brk 참고 (SYSCALL 매뉴얼)
+	 *; >> man 3 malloc 참고 (brk, sbrk 사용에 대한 설명)
+	 *; */
 	init_mm.brk	   = (unsigned long) _end;
 
+	/*; Iamroot17A 2020.Dec.19 #3
+	 *;
+	 *; 현재 boot_command_line의 값은 update되지 않았지만, 그 주소값만 미리
+	 *; cmdline_p에 설정해 놓는다.
+	 *; boot_command_line은 setup_machine_fdt()에서 update되는 것으로 예상됨
+	 *; >> init/main.c 참고 (boot_command_line 정의)
+	 *; */
 	*cmdline_p = boot_command_line;
 
 	/*
@@ -310,8 +339,35 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
 	 * mappings from the start, avoiding the cost of rewriting
 	 * everything later.
 	 */
+	/*; Iamroot17A 2020.Dec.19 #4
+	 *;
+	 *; KASLR에서 KPTI가 필요한지 확인한다. (KASLR 우회를 어렵게 하여 보안 강화)
+	 *; KPTI(Kernel Page-Table Isolation): meltdown 보안 취약점을 방지하기
+	 *; 위한 방법 중 하나로 이전엔 KAISER라는 기술로 불렸음.
+	 *; KAISER(Kernel Address Isolation to have Side-channels Efficiently Removed)
+	 *; KPTI 적용 시, 유저 영역과 커널 영역의 분리를 더 강화시켜 줌.
+	 *; >> https://sata.kr/entry/%EB%B3%B4%EC%95%88-Issue-Meltdown%EB%A9%9C%ED%8A%B8%EB%8B%A4%EC%9A%B4-%EC%B7%A8%EC%95%BD%EC%A0%90%EC%9D%84-%ED%8C%8C%ED%97%A4%EC%B3%90%EB%B3%B4%EC%9E%90-1 참고 (Meltdown 및 KPTI 설명)
+	 *; >> https://lwn.net/Articles/738975/ 참고 (KAISER 소개)
+	 *; >> https://www.programmersought.com/article/11512728259/ 참고 (ARM64의 meltdown 취약점 보완방법 설명)
+	 *; */
 	arm64_use_ng_mappings = kaslr_requires_kpti();
 
+	/*; Iamroot17A 2020.Dec.19 #5
+	 *;
+	 *; 이전 head.S에서 kaslr_early_init()이 호출되었다면 FDT를 읽기 위해서
+	 *; 이미 early_fixmap_init()이 호출되었을 것이다.
+	 *; 아래와 같이 조건부 컴파일이 가능한데 왜 중복호출하는지 의문임.
+	 *; ```c
+	 *; #ifndef CONFIG_RANDOMIZE_BASE
+	 *;	early_fixmap_init()
+	 *; #endif
+	 *; ```
+	 *; 가설 1) KASLR 적용시 다시 page directory 생성 과정에서 fixmap에 대한
+	 *;         pgdir이 변경되어 다시 fixmap에 대한 init이 필요하다.
+	 *; 가설 2) early_fixmap_init() 내부 구현을 보면 각 level page dir에서
+	 *;         주소가 매핑되어 있지 않은 경우를 확인하므로 성능상 큰 차이가 없다.
+	 *; >> Iamroot17A 2020.Nov.21 #8.2 상단 참고 (early_fixmap_init() 호출 지점)
+	 *; */
 	early_fixmap_init();
 	early_ioremap_init();
 

@@ -40,6 +40,14 @@ static inline void __pud_populate(pud_t *pudp, phys_addr_t pmdp, pudval_t prot)
 
 static inline void __p4d_populate(p4d_t *p4dp, phys_addr_t pudp, p4dval_t prot)
 {
+	/*; Iamroot17A 2020.Dec.19 #5.3.2.1
+	 *;
+	 *; early_fixmap_init()에서 __p4d_populate() 호출의 인자 값은 아래와 같다.
+	 *;  p4d_t *p4dp = p4dp (== init_mm.pgd에서 indexing한 p4d 주소)
+	 *;  phys_addr_t pudp = __pa_symbol(bm_pud)
+	 *;  p4dval_t prot = PUD_TYPE_TABLE
+	 *; 즉, p4dp에 bm_pud의 물리 주소를 PUD_TYPE_TABLE flag와 함께 설정한다.
+	 *; */
 	set_p4d(p4dp, __p4d(__phys_to_p4d_val(pudp) | prot));
 }
 

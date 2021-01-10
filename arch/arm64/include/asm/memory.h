@@ -177,6 +177,11 @@ extern u64			kimage_voffset;
 
 static inline unsigned long kaslr_offset(void)
 {
+	/*; Iamroot17A 2020.Dec.19 #4.4.1
+	 *;
+	 *; kimage_vaddr는 KASLR이 적용되었다면 KIMAGE_VADDR과 달라지게 된다.
+	 *; >> Iamroot17A 2020.Nov.21 #5.1 참고 (kimage_vaddr 정의)
+	 *; */
 	return kimage_vaddr - KIMAGE_VADDR;
 }
 

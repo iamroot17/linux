@@ -878,6 +878,10 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	 *; */
 	page_address_init();
 	pr_notice("%s", linux_banner);
+	/*; Iamroot17A 2020.Dec.19 #1
+	 *;
+	 *; security 관련 기능을 초기화한다. (security는 자세히 다루지 않는다.)
+	 *; */
 	early_security_init();
 	setup_arch(&command_line);
 	setup_boot_config(command_line);
