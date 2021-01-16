@@ -547,6 +547,12 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	ldr_l	x4, idmap_ptrs_per_pgd
 	mov	x5, x3				// __pa(__idmap_text_start)
 	adr_l	x6, __idmap_text_end		// __pa(__idmap_text_end)
+	/*; Iamroot17A2 2021.Jan.16
+	 *;  ffff800010dce000 T __idmap_text_start
+	 *;  ffff800010dce7a4 T __idmap_text_end
+	 *;  ffff800010000000 T _text
+	 *;  ffff800011dc0000 B _end
+	 *; */
 
 	map_memory x0, x1, x3, x6, x7, x3, x4, x10, x11, x12, x13, x14
 

@@ -307,6 +307,12 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
 	 *; >> mm/init-mm.c 참고 (init_mm의 멤버 초기 값 정의)
 	 *; >> arch/arm64/kernel/vmlinux.lds.S 참고 (_text, _etext 등 정의)
 	 *; */
+	/*; Iamroot17A2 2021.Jan.16
+	 *;  ffff800010000000 T _text
+	 *;  ffff800010de0000 R _etext
+	 *;  ffff800011d3a200 D _edata
+	 *;  ffff800011dc0000 B _end
+	 *; */
 	init_mm.start_code = (unsigned long) _text;
 	init_mm.end_code   = (unsigned long) _etext;
 	/*; 왜 init_mm.start_data는 초기화하지 않는 것일까?
