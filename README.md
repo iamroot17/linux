@@ -108,6 +108,7 @@
   + cgroup의 개념 등 이론적인 부분 추가 분석
   + IDR/IDA 분석
 + commit : a1266cfe8ec347cc5d671ecd822ec9d29dc9ebfa
+------
 
 ### 2020년 16주차 스터디
 + 2020년 12월 12일
@@ -133,4 +134,46 @@
 + commit : 261efe3bb57068e0dbf6cefd204d092554bf6fe3
 ------
 
+### 2020년 18주차 스터디
++ 2020년 12월 26일
++ init/main.c start_kernel() 분석 중
+  + arch/arm64/mm/mmu.c
+  + setup_arch() 의 early_fixmap_init() 마무리
++ RCU 이론 스터디
+------
 
+### 2020년 19주차 스터디
++ 2021년 1월 2일
++ init/main.c start_kernel() 분석 중
+  + arch/arm64/kernel/setup.c
+  + setup_arch() 분석
+  + early_ioremap_init() 분석
+  + setup_machine_fdt() 분석 중
+  + fixmap_remap_fdt() 분석
++ RCU 이론 스터디
+------
+
+### 2020년 20주차 스터디
++ 2021년 1월 9일
++ init/main.c start_kernel() 분석 중
+  + arch/arm64/kernel/setup.c
+  + setup_arch() 분석
+  + setup_machine_fdt() 분석 중
+  + memblock_reserve() 분석
+  + early_init_dt_scan() 분석 중
+  + early_init_dt_scan_chosen() 분석 완료
++ Device Tree 이론 스터디
+------
+
+### 2020년 21주차 스터디
++ 2021년 1월 16일
++ init/main.c start_kernel() 분석 중
+  + arch/arm64/kernel/setup.c
+  + setup_arch() 분석
+  + early_init_dt_scan_nodes 분석
+    + early_init_dt_scan_root
+    + early_init_dt_scan_memory
+  + kernel/jump_label.c
+  + jump_label_init() 분석
++ RCU 이론 스터디
+------
