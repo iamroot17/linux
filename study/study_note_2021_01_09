@@ -1,0 +1,126 @@
+gic_prio_irq_setup : ICC_PMR_EL1의 (1 << 4)를 orring
+
+ct_user_exit_irqoff : context tracking (debugging)
+- CPU가 user/guest mode에서 kernel로 들어오는 것을 tracking할 수 있게 함
+- re-entrant 지원
+
+trace_hardirqs_off
+- per-cpu 데이터인 tracing_irq_cpu가 off면 on으로 바꿔준다.
+- http://jake.dothome.co.kr/exception-1/ : 얼마나 오랬동안 irq가 disable되었는지 그 주기를 알아보기 위한 트래킹 디버깅을 수행함
+
+do_el0_irq_bp_hardening
+- branch prediction을 이용한 aliasing 공격을 mitigation하기 위한 코드
+- https://patchwork.kernel.org/project/linux-arm-kernel/patch/4349161f0ed572bbc6bff64bad94aa96d07b27ff.1562908075.git.viresh.kumar@linaro.org
+- spectre bug 방지?
+
+handle_arch_irq : function pointer (입력 : pt_regs)
+- generic IRQ handler
+
+irq_stack_entry
+- x19 = sp
+- eor x25, 25, x19 : [63:15] == 49'b0
+- kernel stack에서 IRQ stack으로 sp를 변경
+- irq_stack도 per-cpu
+
+irq_stack_exit
+- sp = x19 (IRQ stack --> kernel stack으로 복귀)
+
+trace_hardirqs_on
+- tracing_irq_cpu를 on에서 off로 변경
+- 인터럽트가 disable된 주기 저장
+
+ARM REF MAN : exception entry에서 DAIF는 다 1로 masking됨.
+
+ret_to_user
+- disable daif
+- gic_prio_kentry_setup tmp=x3
+- thread_info.flags의 비트를 보고 scheduler를 불러야 하는지 판단 --> work_pending jump
+
+work_pending
+- x0 = sp
+- do_notify_resume
+- addr limit user check : address limit이 USER_DS인지 체크
+- NEED_RESCHED 이면 debug/serror unmask하고 scheduler 수행
+- 그 외는 daif 모두 unmask
+- UPROBE : user-level probing (tracing & debugging, breakpoint, single-step)
+- SIGPENDING : do signal (시그널 처리)
+- NOTIFY_RESUME : user mode로 돌아가기 직전에만 수행하면 되는 code를 task_works에 달아놓으면 return하기 직전에 수행됨 (tracehook_notify_resume에서 수행)
+rseq_handle_notify_resume : preemption, signal delivery, return to user 사이에 수행
+concurrent control algorithm
+https://www.efficios.com/blog/2019/02/08/linux-restartable-sequences/ 
+- FOREIGN_FPSTATE : floating point context 복구
+- 모든 경우에 flag를 clear함
+- daif mask
+- thread_info.flags가 남아있는게 있으면 loop를 돌면서 처리
+
+- trace_hardirqs_on
+
+- enable_step_tsk : software step을 enable
+- stackleak_erase : 이미 사용되서 pop된 kernel stack값들을 poison value로 덮어서 유출 방지
+
+kernel_exit
+- ICC_PMR_EL1을 stack에서 읽어서 복구
+- x21, x22 = ELR, SPSR
+- ct_user_enter : CPU가 user/guest mode에서 kernel로 들어오는 것을 tracking할 수 있게 함
+- Previliged access never 설정 복구
+- sp_el0 = x23
+- shadow call stack 처리
+- pointer authentication user key 복구
+- ssbd (spectre) 처리
+- elr_el1, spsr_el1 = x21, x22
+- x0 ~ x29 복구
+- LR (x30) 복구
+- SP 공간 복구
+- trampoline 처리 후 ERET
+- speculation barrier : https://cpu.fyi/d/047#E9.CHDHDDBE
+- eret 이후 speculatively 실행되는 명령으로 인한 side channel attack 방지
+- eret 이후엔 항상 sb 수행
+
+
+ret_to_user는 el0에서만 수행함
+el1이상에서는 그냥 kernel_exit
+
+el1이상에서 kernel_entry 들어오면 원래 addr limit은 stack에 저장하고 USER_DS로 addr limit 초기화
+system call read같은 경우 필요한 순간에만 addr limit을 KERNEL_DS로 설정하고 작업 끝나면 USER_DS로 복구시킴
+
+
+el0_sync
+
+esr_el1 : exception syndrome register 
+https://developer.arm.com/docs/ddi0595/i/aarch64-system-registers/esr_el1
+
+el0_sync_handler : case 문으로 sync exception 원인 파악 후 맞는 함수 수행
+- x0 = sp
+
+do_el0_svc
+- sve_user_discard : SVE disable?
+- el0_svc_common 수행하여 system call 수행
+- scno = regs->regs[8]
+
+X8 : system call 번호
+
+el0_svc_common
+- regs->orig_x0 = regs->regs[0]
+- regs->syscallno = scno
+- daif enable
+- user_exit : user --> kernel tracking check
+
+cmp : borrow 있으면 0 / 없으면 1
+https://developer.arm.com/documentation/dui0801/a/Condition-Codes/Carry-flag
+
+SBC : subtract with carry : op1 - op2 - not(carry)
+https://heyrick.eu/armwiki/SBC#SBC.5BS.5D_:_Subtract_with_Carry
+
+array_index_mask_nospec(idx, sz)
+cmp idx, sz
+sbc mask, xzr, xzr
+mask = 0 - 0 - not(carry) = -1 if idx < sz 0 else
+
+- syscall_fn : syscall table로부터 함수를 불러와서 수행
+- SYS_DEFINE 매크로로 syscall 함수 정의 (숫자는 인자 개수)
+
+- regs->regs[0]에 return 값 저장하고 끝
+
+system call
+https://www.linuxbnb.net/home/adding-a-system-call-to-linux-arm-architecture/#Add_System_Call_Handler_in_Kernel
+구현 방식 : https://lwn.net/Articles/604287/

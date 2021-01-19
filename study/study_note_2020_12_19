@@ -1,0 +1,36 @@
+자료구조
+- list_head, radix tree, idr
+
+아키텍처
+- atomic operation, mutex
+
+스케줄러
+- cgroup, rcu
+
+
+atomic operation 스터디
+- strex/ldrex 스터디
+
+
+one way barriers
+https://developer.arm.com/documentation/den0024/a/Memory-Ordering/Barriers/One-way-barriers
+
+__LL_SC_CLOBBERS 매크로
+#define __LL_SC_CLOBBERS	"x16", "x17", "x30"
+
+PRFM 명령어
+https://developer.arm.com/docs/ddi0596/a/a64-base-instructions-alphabetic-order/prfm-immediate-prefetch-memory-immediate
+
+I/J/K/L constraint
+https://patchwork.kernel.org/project/linux-arm-kernel/patch/20190829154834.26547-3-will@kernel.org/
+https://gcc.gnu.org/onlinedocs/gcc/Machine-Constraints.html
+
+STCLR/LDCLR 명령어
+LDCLR Xs, Xt, [Xn] : Xs를 마스크로 [Xn]에 bit clear를 수행하고 원래 [Xn]의 값을 Xt에 load함
+STCLR Xs, [Xn] = LDCLR Xs, XZR, [Xn]
+https://developer.arm.com/docs/ddi0602/b/base-instructions-alphabetic-order/ldclr-ldclra-ldclral-ldclrl-atomic-bit-clear-on-word-or-doubleword-in-memory
+https://developer.arm.com/docs/ddi0602/b/base-instructions-alphabetic-order/stclr-stclrl-atomic-bit-clear-on-word-or-doubleword-in-memory-without-return-an-alias-of-ldclr-ldclra-ldclral-ldclrl
+
+CAS 명령어
+CAS Xs, Xt, [Xn] : Xs가 [Xn]과 같으면 [Xn]에 Xt를 쓴다. 그리고 Xt에 [Xn]의 값을 로드한다.
+https://developer.arm.com/documentation/dui0801/g/A64-Data-Transfer-Instructions/CASA--CASAL--CAS--CASL--CASAL--CAS--CASL

@@ -1,0 +1,44 @@
+TGE[27] == 1 : EL2 routing
+FMO/IMO/AMO : EL2 routing(1) or not(0)
+
+상위 EL에서 하위 EL의 exception routing을 설정 가능함 (SCR/HCR)
+상위 EL에서 하위 EL의 aarch32/64를 설정 가능함 (SCR/HCR.RW)
+
+synchronous exception : invalid instruction, MMU check fail, ...
+
+#S_FRAME_SIZE = sizeof(struct pt_regs)
+
+struct pt_regs
+
+sp = sp_el1
+
+#THREAD_SHIFT = 14
+
+stack pointer = 32KB aligned + 16KB
+
+head.S의 __primary_switched 처음에 sp를 설정해줌
+
+adrp x4, init_thread_union(32KB aligned)
+add sp, x4, #THREAD_SIZE
+
++--------------------------+
+ |	1	         |
++--------------------------+  32 + 16
+ |	0	         |
++--------------------------+  32
+ |	1	         |
++--------------------------+  32 + 16
+ |	0	         |
++--------------------------+  32
+ |	1	         |
++--------------------------+  32 + 16
+ |	0	         |
++--------------------------+  32
+ |	1	         |
++--------------------------+  32 + 16
+ |	0	         |
++--------------------------+  32
+
+copy_thread
+task_pt_regs() 매크로에 32KB + 16KB 더하는 코드가 있음
+cpu_switch_to

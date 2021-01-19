@@ -1,0 +1,131 @@
+list_head, radix ree, idr, xarray
+
+atomic (저번 주 진행)
+spinlock
+mutex
+
+cgroup
+
+별 1 : 검색만
+별 2 : 개념만
+별 4개 이상 : 개념 + 코드
+
+
+warn_unused_result attribute
+함수 호출 결과를 이용하지 않는 경우에 경고를 보여주는 역할을 한다.
+만약 어떤 함수를 작성할 때 해당 함수의 반환값을 항상 확인해야 하는 경우라면
+함수 선언 시 warn_unused_result attribute를 지정하여 경고를 띄울 수 있을 것이다.
+http://egloos.zum.com/studyfoss/v/5310361
+
+
+IS_ERR_VALUE(x) : (unsigned long)(void *)x >= -4095 = 0xFFFFFFFF_FFFFF001
+IS_ERR_PTR
+
+cpu_subsys의 경우 css 초기화시 root_task_group.css를 사용
+cpu_acct_subsys의 경우 초기화시 root_cpuacct.css를 사용
+
+local_irq_disable();
+
+CONFIG_TRACE_IRQFLAGS : off
+ARM64_HAS_IRQ_PRIO_MASKING : off
+
+ALTERNATIVE macro : 특정 feature가 on일때 두 번째 코드 활성화
+daifset #2 <-- interrupt mask bit set
+
+
+sp_el0는 current task로 커널에서 사용
+
+stack pointer -> 32KB align되는 지점 + 16KB 만큼 이동해서 시작 -> 항상 14th bit가 0
+
+el1_irq
+
+x21 : 원래 task sp
+x28 = tsk = current task
+
+pt_reg.addr_limit = task.addr_limit
+task.addr_limit = USER_DS
+x22 = elr_el1
+x23 = spsr_el1
+pt_reg.reg[30], pt_reg.sp = x30, sp
+
+pt_reg.stackframe[2] = x29(frame_pointer), x22(elr_le1)
+
+x29 = &pt_reg.stackframe[0] (frame pointer 생성)
+
+task original addr_limit
+KERNEL_DS ?
+
+el0_irq
+
+entry_kernel : context save
+
+save x0 ~ x29
+clear x0 ~ x29
+x21 = sp_el0 (user stack 저장)
+sp_el0 = current_task (percpu data(__entry_task)로 저장되있던 값)
+x28 = tsk = current task
+(참고: tpidr = per-cpu offset값을 저장)
+(ldr_this_cpu 매크로 : per-cpu data를 읽어온다)
+x19 = current_task.thread_info.flags (아래 여러 매크로에서 동작 조건으로 사용)
+
+disable_step_tsk : 
+해당 task에 대해 singlestep 설정을 보고 software step disable 결정
+(mdscr_el1 레지스터)
+
+apply_ssbd : alternative_cb 매크로 <-- 여기까지 진행
+https://lwn.net/Articles/755211/
+spectre 버그 mitigation을 위한 코드임
+
+
+ptrauth_keys_install_kernel : kernel key setting (APIA)
+scs_load : shadow call stack (pass)
+
+x22 = elr_el1
+x23 = spsr_el1
+pt_reg.reg[30], pt_reg.sp = x30(lr), x21(user stack)
+pt_reg.pc, pt_reg.pstate = elr_el1, spsr_el1
+pt_reg.syscallno = -1 (NO)
+
+TTBR0_PAN : kernel에서 TTBR0에 해당하는 유저 코드를 실행 못하게 함
+(PAN : priviledged access never)
+
+ICC_PMR_EL1 : 해당 레지스터 써있는 priority보다 높은 IRQ만 발생함
+https://developer.arm.com/docs/ddi0601/f/aarch64-system-registers/icc_pmr_el1
+
+
+irq_handler
+
+irq_stack_entry
+x19 = sp
+
+handle_arch_irq : top C handler, vendor에서 interrupt controller device driver에서 제공
+set_handle_irq에서 설정함
+
+irq_stack_exit
+sp = x19
+
+ret_to_user
+
+disable_daif
+x1 = current_task.thread_info.flags
+TIF_WORK_MASK : thread_info bit에서 rescheduled/sigpending 등 추가 작업이 필요한지 확인
+필요없으면 finish_ret_to_user로 점프
+
+x0 = sp (pt_reg context)
+do_notify_resume --> scheduling 관련된 일을 처리함
+x1 = task.thread_info.flags
+
+finish_ret_to_user
+enable_step_tsk : mdscr_el1 레지스터에서 software step을 복구
+
+
+kernel_exit
+
+x23 = sp_el0 (user sp)
+
+ptrauth_keys_install_user : user key setting (APIA, APIB, APDA, APDB, APGA)
+
+x21 = elr_el1 (pc)
+x22 = spsr_el1 (pstate)
+restore x0 ~ x30, elr_el1, spsr_el1, sp_el0
+
