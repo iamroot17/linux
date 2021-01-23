@@ -1,0 +1,191 @@
+setup_arch()
+
+Fixmap 관련 내용
+: http://www.iamroot.org/xe/index.php?mid=Programming&document_srl=210100
+
+- Fixmap
+: http://jake.dothome.co.kr/fixmap/
+: 컴파일 타임에 가상 주소가 결정되는 공간
+: 물리주소는 fixmap용 API를 사용하여 런타임시 매핑하여 사용
+: 콘솔 디바이스를 정식 mapping하기 전에 임시 매핑하여 사용하는 용도
+: 또는 커널 코드 변경 및 페이지 테이블 갱신할 때 매핑하여 사용
+
+:용도
+1) io 디바이스 early 매핑
+: 부팅시 정식 매핑전에 디바이스를 임시 매핑하여 사용
+: io 디바이스는 ioremap을 써서 정식 매핑해야 하는데 그 전에 쓰거나 (early_ioremap)
+: 아니면 컴파일 타임에 static하게 설정된 디바이스를 고정 매핑하여 사용하는 경우
+
+2) highmem 물리 메모리 커널 매핑
+: ARM32에서는 커널 영역이 1G이므로 물리주소보다 작아서 모든 물리 영역을 사용하기 위해
+임시로 매핑하고 사용 후 언매핑하는 과정을 써서 접근하는데 이 용도로 fixmap을 사용할 수 있음
+: ARM64에서는 가상 주소 영역이 크므로 사용안함
+
+3) 커널 코드 변경
+: 커널 코드 변경시 fixmap 가상주소 영역을 임시로 사용
+
+다른 mapping들
+1) vmap : 정식 매핑, vmalloc 영역 매핑
+2) kmap : kernel address space에 일정 시간 매핑하여 사용, sleep 가능. 다른 task로 바뀌어도 매핑 유지함. kmap_atomic을 쓰면 fixmap 영역에 매핑한다.
+3) fixmap : highmem 페이지에 매우 짧은 시간 매핑하여 사용하거나 io 영역을 부팅시 고정매핑하여 사용. Sleep 되지 않으며 따라서 interrupt context에서 사용 가능. 스케쥴되어 다른 task로 바뀌기 전에 unmap해야 함
+
+vmemmap : struct page 관리를 위한 보조적인 자료구조 영역. 한 page 당 64bit 정도
+vmalloc : vmalloc 할 때 할당해주는 메모리 영역 (vmap 사용)
+
+BPF_JIT_REGION : 버클리 패킷 필터 (네트워크 패킷 처리 코드 영역인듯)
+MODULE 영역 : insmod, rmmod 등 모듈 메모리 영역
+
+fixmap은 가상 주소는 고정되어 있고 물리주소는 아래 함수로 세팅 가능
+ex) set_fixmap(1, 0x4000_0000) : fixmap 1번 페이즈를 물리주소 0x4000_0000에 매핑함
+
+fixmap 인덱스 영역을 슬롯으로 용도 구별하여 사용함
+- HOLE, FDT, EARLYCON (디바이스), KMAP, TEXT_POKE (RO 커널 코드 변경용),
+- APEI_GHES : generic hardware error source driver가 sleep되지 않도록 fixmap에 미핑?
+- ENTRY_TRAMP : KASLR, KPTI 사용시 최상위 매핑을 위해 사용
+- BTMAPS : 정규 ioremap을 사용할 수 없는 초기에 디바이스 매핑하여 사용함 early_ioremap()
+- FIX_PTE, FIX_PMD, FIX_PUD, FIX_PGD : 커널 페이지 테이블을 런타임에 생성시 사용
+
+early_fixmap_init()
+- p4d_t
+: https://lwn.net/Articles/717293/
+: http://jake.dothome.co.kr/pt64/
+: http://www.iamroot.org/xe/index.php?mid=Programming&document_srl=209335
+: x86은 5단계고 4번째가 p4dt 테이블, arm64는 4단계
+: 현 단계에서 구현 안되있고 그냥 bypass p4d_offset(pgdp, addr) = pgdp
+
+fixmap slot index 방향은 stack처럼 addr랑 반대임
+fixmap mapping : init_mm에 메모리 매핑하고 init_mm의 pgd가 swapper_pg_dir로 초기화되어 있음
+swapper_pg_dir은 링커 스크립트에 page size만큼 정의되어 있음
+init_mm에서 pgd를 INIT_MM_CONTEXT(init_mm)에서 swapper_pg_dir에서 init_pg_dir로 바꿔서 정해준다 (arm64) --> 결국 init_pg_dir로 초기화한다
+
+단계 별 bit map : https://developer.arm.com/architectures/learn-the-architecture/memory-management/translation-granule
+
+typedef struct { pgd_t pgd; } p4d_t;
+typedef struct { pgdval_t pgd; } pgd_t;
+typedef u64 pgdval_t;
+
+static pud_t bm_pud[PTRS_PER_PUD] __page_aligned_bss __maybe_unused;
+static pmd_t bm_pmd[PTRS_PER_PMD] __page_aligned_bss __maybe_unused;
+static pte_t bm_pte[PTRS_PER_PTE] __page_aligned_bss;
+
+PTRS_PER_PUD = PTRS_PER_PMD = PTRS_PER_PTE = 512 (9 bit)
+
+__pa_symbol : 물리주소를 리턴
+__phys_addr_symbol 
+__kimg_to_phys (addr - kimage_voffset)
+
+kimage_voffset : 커널 가상주소랑 물리주소의 차이
+
+p4dp는 init_pg_dir의 한 entry의 가상 주소 (entry는 fixmap 영역 가상 주소로 결정됨)
+p4d는 그 entry의 값
+
+__p4d_populate() : pgd 1개 entry를 pud 주소로 채우고 page table descriptor를 설정
+- pudp는 bm_pud의 물리주소임
+- __phys_to_p4d_val : 그냥 identity
+- __p4d : p4d_t type으로 casting
+- set_p4dp를 부른다
+
+set_p4d()
+- p4dp는 init_pg_dir entry 가상 주소
+- p4d는 bm_pud의 물리주소
+- p4dp가 swapper_pg_idr 주소 내에 있는지 체크
+- swapper_pg_idr이 아닌 init_pg_dir 영역이므로 *p4dp = p4d 수행하여 init_pg_dir entry(가상주소)에 bm_pud(물리주소)를 assign하고 배리어 수행함
+
+fixmap_pud()
+- addr의 pudp의 가상주소를 리턴함
+- 즉 FIXADDR_START에 해당하는 bm_pud entry의 가상 주소(pudp)를 리턴
+
+__pud_populate()
+- set_pud를 호출하여 bm_pud_entry 가상주소(pudp)와 bm_pmd의 물리주소(pud)를 mapping
+
+set_pud()
+- swapper_pg_dir이 아니므로 그냥 pudp 가상주소에 pud 물리주소를 write
+- 물리주소가 valid하면 배리어 수행하고 리턴
+
+fixmap_pmd()
+- addr의 pmdp의 가상주소를 리턴함
+- 즉 FIXADDR_START에 해당하는 bm_pmd entry의 가상 주소(pmdp)를 리턴
+
+__pmd_populate()
+- set_pmd를 호출하여 bm_pmd_entry 가상주소(pmdp)와 bm_pte의 물리주소(pmd)를 mapping
+
+set_pmd()
+- swapper_pg_dir이 아니므로 그냥 pmdp 가상주소에 pmd 물리주소를 write
+- 물리주소가 valid하면 배리어 수행하고 리턴
+
+최종적으로 init_pg_dir에서 bm_pud, bm_pmd, pm_pte까지 FIXADDR_START 영역을 매핑함
+최종 pte에는 물리주소를 쓰지 않았으므로 최종 매핑은 되지 않고 차후 필요시 마다 매핑하여 사용
+이제부터 fixmap API를 이용하여 메모리 매핑을 할 수 있다
+
+아래는 FIX_BTMAP 영역이 모두 하나의 pmd entry로 매핑되었는지 확인하고 아니면 경고 출력
+이후 early_fixmap_init() 완료
+
+
+
+
+여기서부터는 fixmap API 설명임
+swapper_pg_dir에 fixmap 가상주소가 매핑되면 fixmap API를 사용할 수 있으며 다음 API가 사용됨
+- set_p4d()
+- set_pud()
+- set_pmd()
+
+모두 가상 주소와 물리주소 쌍을 받아서 mapping하는 것이 목적
+가상주소 범위가 swapper_pg_idr 영역인지 확인하고 맞으면 set_swapper_pgd 수행
+이 때 물리주소는 __pgd()를 이용해서 pgd_t로 casting되고 물리주소에는 flag가 포함되어 있으나 setswapper_pgd()를 타면 무시된다 (해당 flag는 early init에서만 사용)
+
+set_swapper_pgd(pgdp, pgd)
+- pgdp는 가상 주소 (swapper_pg_idr 영역)
+- pgd는 pgdp의 물리주소에 쓰고 싶은 값
+- pgdp의 물리주소에 pgd를 쓴다
+- 가상주소로 pgdp를 접근할 수 없는 경우 fixmap을 이용하여 임시로 pgdp의 가상주소를 할당 받고, 이를 이용하여 해당 가상 주소에 pgd를 쓴다
+- 그러면 pgdp의 물리주소에 pgd가 기록된다
+- 이후 fixmap 가상주소를 해제한다
+1) swapper_pgdir의 spinlock을 잡는다
+2) pgd의 물리주소를 pgd_set_fixmap으로 넘겨서 해당 물리주소에 대한 임시 가상주소(fixmap_pgdp)를 할당받는다
+3) 할당된 임시 가상 주소에 pgd를 기록한다
+4) pgd_clear_fixmap()으로 할당된 임시 가상주소를 해제한다
+5) spinlock을 푼다
+
+
+pgd_set_fixmap
+- 물리주소 addr를 fixmap의 PGD 슬롯 idx에 매핑하고, addr의 가상주소를 리턴한다
+- set_fixmap_offset() 호출
+
+
+set_fixmap_offset()
+- fixmap idx에 물리주소 phys를 매핑함, 매핑된 가상주소 리턴
+- 플래그는 FIXMAP_PAGE_NORMAL 사용함
+- __set_fixmap_offset() 호출
+
+
+
+__set_fixmap_offset()
+- fixmap idx에 물리주소 phys를 flags와 함께 매핑함
+- 리턴값으로 매핑된 phys의 가상주소를 리턴함
+- __set_fixmap() 호출
+
+
+
+__set_fixmap(idx, phys, flags)
+- idx : fixmap 인덱스
+- phys : 매핑하고자 하는 물리주소
+- flags : 매핑 엔트리 플래그
+- addr = __fix_to_virt(idx) : fixmap index의 가상주소를 pte 레벨까지 구한다 (하위 12비트만 0)
+- fixmap index 범위 체크
+- ptep = fixmap_pte(addr) : addr에 해당하는 bm_pte array의 엔트리 주소 리턴
+- pgprot_val(flags) : flag의 0번째 bit가 1인지 조사 (validity 조사)
+- valid하면 set_pte로 bm_pte array의 엔트리 주소에 페이지 align된 물리주소를 메모리 flag와 함께 쓴다
+- 이로써 요청한 물리주소가 원하는 fixmap idx 영역에 매핑됨
+- pfn_pte : 물리주소와 flag를 or해서 리턴, 여기서 물리주소가 12bit >> 되서 들어간다 (flag 무시 및 page align)
+
+
+fixmap_pte()
+- addr : bm_pte 레벨까지 구한 가상주소 (하위 12bit만 0)
+- pte_index(addr) : addr의 pte의 index를 구함
+- 해당 index의 pte에 해당하는 가상 주소 리턴 (bm_pte의 entry)
+
+set_pte()
+- ptep : bm_pte의 한 entry의 가상 주소
+- pte : 매핑하고자 하는 물리주소의 페이지 단위 (하위 12bit를 0으로하고 페이지 flags 추가)
+- WRITE_ONCE해서 ptep에 pte를 쓴다
+- 이후 pte_valid_not_user로 pte valid 및 user 아닌거 체크하고 배리어 수행 후 나감
