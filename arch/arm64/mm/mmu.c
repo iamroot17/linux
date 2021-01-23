@@ -62,6 +62,10 @@ static pud_t bm_pud[PTRS_PER_PUD] __page_aligned_bss __maybe_unused;
 
 static DEFINE_SPINLOCK(swapper_pgdir_lock);
 
+/*; Iamroot17A2 2021.Jan.23
+ *; pgdp = swapper_pg_dir+index
+ *; pgd = phys(bm_pud)
+ *; */
 void set_swapper_pgd(pgd_t *pgdp, pgd_t pgd)
 {
 	pgd_t *fixmap_pgdp;
@@ -1208,6 +1212,7 @@ void __init early_fixmap_init(void)
 	 *; 아래 pud의 값을 읽어 오는 것과 달리 조건문 분기가 있어
 	 *; 따로 p4d 변수에 읽어온 값을 저장한다.
 	 *; */
+	/*; *p4dp == {0} */
 	p4d = READ_ONCE(*p4dp);
 	if (CONFIG_PGTABLE_LEVELS > 3 &&
 	    !(p4d_none(p4d) || p4d_page_paddr(p4d) == __pa_symbol(bm_pud))) {
