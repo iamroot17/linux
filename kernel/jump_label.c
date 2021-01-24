@@ -471,8 +471,17 @@ void __init jump_label_init(void)
 
 	cpus_read_lock();
 	jump_label_lock();
+	/*; Iamroot17A 2021.Jan.23
+	 *; 왜 sort가 필요할까 ??
+	 *; */
 	jump_label_sort_entries(iter_start, iter_stop);
 
+	/*; Iamroot17A 2021.Jan.23
+	*; include/asm-generic/vmlinux.lds.h
+	*; arch_static_branch_jump .pushsection	__jump_table
+	*; __jump_table을 push section에 넣는다.
+	*; arch/arm64/include/asm/jump_label.h
+	*; */
 	for (iter = iter_start; iter < iter_stop; iter++) {
 		struct static_key *iterk;
 

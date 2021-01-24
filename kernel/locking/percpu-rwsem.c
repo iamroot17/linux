@@ -140,12 +140,18 @@ static void percpu_rwsem_wait(struct percpu_rw_semaphore *sem, bool reader)
 {
 	DEFINE_WAIT_FUNC(wq_entry, percpu_rwsem_wake_function);
 	bool wait;
-
+	/*; Iamroot17A 2021.Jan.23
+	 *; semaphore state 변경을 위해 spin lock을 사용한다.
+	 *; */
 	spin_lock_irq(&sem->waiters.lock);
 	/*
 	 * Serialize against the wakeup in percpu_up_write(), if we fail
 	 * the trylock, the wakeup must see us on the list.
 	 */
+	/*; Iamroot17A 2021.Jan.23
+	 *; wq_entry의 해제는 잘 되는 걸까? while(wait)에서 해결된다.
+	 *; while(wait) 무한 루프는 spin lock은 아니다. acquire 시 break
+	 *; */
 	wait = !__percpu_rwsem_trylock(sem, reader);
 	if (wait) {
 		wq_entry.flags |= WQ_FLAG_EXCLUSIVE | reader * WQ_FLAG_CUSTOM;
@@ -162,6 +168,10 @@ static void percpu_rwsem_wait(struct percpu_rw_semaphore *sem, bool reader)
 	__set_current_state(TASK_RUNNING);
 }
 
+/*; Iamroot17A 2021.Jan.23
+ *; lock 시도. 성공 종료, 실패 fail
+ *; try가 true면 semaphore 설정 후 종료
+ *; */
 bool __percpu_down_read(struct percpu_rw_semaphore *sem, bool try)
 {
 	if (__percpu_down_read_trylock(sem))
