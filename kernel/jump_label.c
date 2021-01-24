@@ -471,12 +471,12 @@ void __init jump_label_init(void)
 
 	cpus_read_lock();
 	jump_label_lock();
-	/*; Iamroot17A 2021.Jan.23
+	/*; Iamroot17A 2021.Jan.23 #3
 	 *; 왜 sort가 필요할까 ??
 	 *; */
 	jump_label_sort_entries(iter_start, iter_stop);
 
-	/*; Iamroot17A 2021.Jan.23
+	/*; Iamroot17A 2021.Jan.23 #4
 	*; include/asm-generic/vmlinux.lds.h
 	*; arch_static_branch_jump .pushsection	__jump_table
 	*; __jump_table을 push section에 넣는다.
