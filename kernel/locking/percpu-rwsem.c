@@ -136,6 +136,15 @@ static int percpu_rwsem_wake_function(struct wait_queue_entry *wq_entry,
 	return !reader; /* wake (readers until) 1 writer */
 }
 
+/*; Iamroot17A 2021.Jan.23 #2
+ *; percpu_rwsem_wait 흐름
+ *; __percpu_rwsem_trylock()로 rw semaphore lock을 시도한다.
+ *; 만일 lock을 실패하면, lock을 얻을 때까지 기다려야 한다. (wait == true)
+ *; wait를 해야 한다면, 현재 rw semaphore의 wait queue에 추가한다. (if (wait) 부분)
+ *; 그리고 rw semaphore를 얻을 때까지 다른 task에게 양보한다. 
+ *; semaphore state 변경을 위해 spin lock을 사용한다.
+ *; semaphore를 구현하기 위해 내부적으로 spin lock, RCU를 사용하는 것으로 예상된다.
+ *; */
 static void percpu_rwsem_wait(struct percpu_rw_semaphore *sem, bool reader)
 {
 	DEFINE_WAIT_FUNC(wq_entry, percpu_rwsem_wake_function);
@@ -148,12 +157,25 @@ static void percpu_rwsem_wait(struct percpu_rw_semaphore *sem, bool reader)
 	 */
 	wait = !__percpu_rwsem_trylock(sem, reader);
 	if (wait) {
+		/*; Iamroot17A 2021.Jan.23 #2.1
+		 *; wq_entry는 상기 DEFINE_WAIT_FUNC() macro를 통해 선언된 지역변수다.
+		 *; wq_entry는 다음 __add_wait_queue_entry_tail 함수에서 사용된다.
+		 *; 이때, &sem->waiters는 함수 밖의 변수이다.
+		 *; 그렇다면 wq_entry의 해제는 잘 되는 걸까? (내부 함수 종료 전에)
+		 *; 아래에 while 문에서 해제될 것이다.
+		 *; */
 		wq_entry.flags |= WQ_FLAG_EXCLUSIVE | reader * WQ_FLAG_CUSTOM;
 		__add_wait_queue_entry_tail(&sem->waiters, &wq_entry);
 	}
 	spin_unlock_irq(&sem->waiters.lock);
 
 	while (wait) {
+		/*; Iamroot17A 2021.Jan.23 #2.2
+		 *; wait의 상태가 변하지 않기 때문에 무한 루프로 오해할 수 있다.
+		 *; rw semaphore를 얻기 위해 schedule() 호출과 같이 다은 task에게 양보하고
+		 *; semaphore를 acquire 하면 종료하기에 무한 루프는 아니다.
+		 *; smp_load_acquire()가 해당 부분을 확인하는 것으로 예상한다.)
+		 *; */ 
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		if (!smp_load_acquire(&wq_entry.private))
 			break;
@@ -162,6 +184,10 @@ static void percpu_rwsem_wait(struct percpu_rw_semaphore *sem, bool reader)
 	__set_current_state(TASK_RUNNING);
 }
 
+/*; Iamroot17A 2021.Jan.23
+ *; lock 시도. 성공 종료, 실패 fail
+ *; try가 true면 semaphore 설정 후 종료
+ *; */
 bool __percpu_down_read(struct percpu_rw_semaphore *sem, bool try)
 {
 	if (__percpu_down_read_trylock(sem))

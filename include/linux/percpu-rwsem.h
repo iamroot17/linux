@@ -59,9 +59,16 @@ static inline void percpu_down_read(struct percpu_rw_semaphore *sem)
 	 * and that once the synchronize_rcu() is done, the writer will see
 	 * anything we did within this RCU-sched read-size critical section.
 	 */
+	/*; Iamroot17A 2021.Jan.23 #1
+	 *; RCU의 sync를 확인하고 idle 상태이면 semaphore read_count를 증가한다.
+	 *; RCU의 sync가 idle 상태라는 것은 다른 CPU에서 write를 하지 않는 상태를 의미한다.
+	 *; */
 	if (likely(rcu_sync_is_idle(&sem->rss)))
 		this_cpu_inc(*sem->read_count);
 	else
+		/*; Iamroot17A 2021.Jan.23 #1.1
+		 *; __percpu_down_read. __percpu_down_read_trylock 내부에서 smp_mb가 동작한다.
+		 *; */
 		__percpu_down_read(sem, false); /* Unconditional memory barrier */
 	/*
 	 * The preempt_enable() prevents the compiler from
