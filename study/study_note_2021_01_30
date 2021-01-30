@@ -1,0 +1,68 @@
+early_ioremap_init()
+
+early_ioremap_setup()
+- fixmap bitmap 영역 7개를 사용한다
+- prev_map array NULL 체크
+- slot_virt 각 인덱스에 FIX_BTMAP 가상주소를 assign함
+- http://jake.dothome.co.kr/early-ioremap/
+- 정식 매핑 전에 io mapping이 필요할 때 fixmap을 이용하여 임시 매핑하기 위한 준비작업
+
+ioremap 내용
+- http://jake.dothome.co.kr/ioremap/
+- https://m.blog.naver.com/PostView.nhn?blogId=moony6463&logNo=10188540008&proxyReferer=https:%2F%2Fwww.google.com%2F
+- 가상주소 = ioremap(물리주소, 크기)를 실행하면 해당 물리주소의 크기만큼 가상주소를 할당하여 리턴한다
+- 이후 ioread(가상주소), iowrite(값, 가상주소)를 통해 할당된 물리주소에 읽고 쓸수 있다
+
+
+setup_machine_fdt(__fdt_pointer)
+- fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL)
+- arm64에서 FDT는 8B align되어야 하고 2MB 사이즈보다 크면 안됨
+- 이유는 첫 번째 2MB 매핑 후 fdt magic과 total_size를 읽을 수 있어야 하기 때문이다 (8B align)
+- FDT 사이즈는 2MB 이하이지만 물리주소는 2MB align이 아닐 수 있다 -->따라서 FDT fixmap 가상주소 영역을 4MB로 할당해줌
+- fixmap 전체가 하나의 PUD로 매핑된다 (1GB)
+- fixmap FDT 가상주소 base는 2MB align되어 있음
+- fixmap FDT 가상주소는 가상주소 base + 물리주소 offset (하위 21비트)
+- fixmap FDT 가상주소와 물리주소를 2MB align해서 2MB 만큼 1차 매핑 (create_mapping_noalloc)
+- offset 때문에 2MB 범위를 넘어가면 4MB 만큼 2차 매핑한다
+- 1차 매핑이 끝나야 FDT header에서 size 정보를 알수 있기 때문에 2번 나눠서 해야 함
+- memblock_reserve(dt_phys, size)로 FDT 물리주소 영역을 차후 다른 용도로 할당하지 않도록 reserve한다
+- early_init_dt_scan(dt_virt)로 FDT를 스캔하여 이상 유무를 체크한다
+- fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL_RO)으로 FDT 영역을 RO로 재매핑한다
+- of_flat_dt_get_machine_name()으로 FDT의 device model명을 읽어와서 커널 로그에 쓰고, 전역 변수 dump_stack_arch_desc_str에 기록한다
+
+fixmap_remap_fdt()
+- FDT 물리주소를 fixmap 가상주소로 매핑하고, 매핑된 가상 주소를 리턴
+- FDT 물리주소의 8B align 및 FIX_FDT의 2MB align 체크
+- create_mapping_noalloc()으로 fixmap FDT 가상주소와 물리주소를 2MB align해서 2MB 만큼 1차 매핑
+- fdt magic 체크
+- fdt total size 체크
+- offset + size가 2MB를 넘으면 create_mapping_noalloc()을 다시 호출하여 4MB 만큼 다시 매핑함
+
+
+create_mapping_noalloc()
+- PAGE_END ~ VMALLOC_START 영역 매핑 요청은 잘못된 요청이므로 버그 체크
+- NO_CONT_MAPPINGS : continuous mapping이 아님
+- __create_pgd_mapping() 호출하여 매핑
+
+__create_pgd_mapping()
+- pgdp = pgd_offset_pgd(pgdir, virt)로 pgdp를 가져옴
+- 이후 alloc_init_pud(pgdp, ...)으로 매핑 수행
+
+alloc_init_pud()
+- pudp = pud_set_fixmap_offset(p4dp, addr)로 pgdp와 addr가 가리키는 물리주소를 임시 가상주소 (fixmap)에 매핑하고 pudp로 리턴한다
+- alloc_init_cont_pmd(pudp, ...)로 매핑 수행한다
+- 매핑이 끝나면 pud_clear_fixmap()으로 pudp 임시 매핑 해제
+
+alloc_init_cont_pmd()
+- init_pmd(pudp, ..)로 매핑 수행
+
+init_pmd()
+- pmdp = pmd_set_fixmap_offset(pudp, addr)로 pudp와 addr가 가리키는 물리주소를 임시 가상주소인 fixmap에 매핑하고 해당 가상주소를 pmdp로 리턴한다
+- pmd_set_huge(pmdp, phys, prot)으로 FDT 물리주소 phys를 할당받은 가상주소 pmdp에 매핑한다
+- 매핑이 끝나면 pmd_clear_fixmap()으로 임시 할당받은 가상주소 pmdp를 해제한다
+
+FDT 개요 (DTB)
+- https://tot0rokr.github.io/kernel/device%20tree/DTBv1/
+- 운영체제에서 읽으려는 전체 하드웨어의 각 디바이스들의 구조 및 구성 방식을 담은 데이터 구조
+- 정해진 형식의 데이터 구조로 구성됨
+- http://jake.dothome.co.kr/dtb1/
