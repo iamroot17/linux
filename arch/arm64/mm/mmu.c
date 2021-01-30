@@ -1326,6 +1326,9 @@ void *__init fixmap_remap_fdt(phys_addr_t dt_phys, int *size, pgprot_t prot)
 	 */
 	BUILD_BUG_ON(dt_virt_base % SZ_2M);
 
+	/*; IAMROOTA2 2021.Jan.30
+	 *; check whether FIX_FDT & FIX_BTMAP maps to the same PUD
+	 *; */
 	BUILD_BUG_ON(__fix_to_virt(FIX_FDT_END) >> SWAPPER_TABLE_SHIFT !=
 		     __fix_to_virt(FIX_BTMAP_BEGIN) >> SWAPPER_TABLE_SHIFT);
 

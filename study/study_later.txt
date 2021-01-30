@@ -5,6 +5,8 @@ work
 idr
 radix tree & xarray
 
+memblock
+
 // patches
 trampoline page table
 SSBD(speculative store bypass disable)
