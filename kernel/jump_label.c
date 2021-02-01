@@ -395,6 +395,13 @@ static enum jump_label_type jump_label_type(struct jump_entry *entry)
 	bool branch = jump_entry_is_branch(entry);
 
 	/* See the comment in linux/jump_label.h */
+	/*; Iamroot17A 2021.Jan.30 #2.1
+	 *; linux/jump_label.h logic table line 432 참조
+	 *; dynamic: instruction = enabled ^ branch (컴파일 타임)
+	 *; static: instruction = type ^ branch (런 타임)
+	 *; jump_label_type의 JUMP_LABEL_NOP 또는 JUMP_LABEL_JMP를
+	 *; 상황에 맞게 반환한다.
+	 *; */
 	return enabled ^ branch;
 }
 
@@ -473,6 +480,9 @@ void __init jump_label_init(void)
 	jump_label_lock();
 	/*; Iamroot17A 2021.Jan.23 #3
 	 *; 왜 sort가 필요할까 ??
+	 *; Iamroot17A 2021.Jan.30 #2.1
+	 *; 정렬에 대한 이유는 없다.
+	 *; 부트업 후에 init section 메모리는 제거된다. 이후에 다시 정렬을 하지 않을까 추측한다.
 	 *; */
 	jump_label_sort_entries(iter_start, iter_stop);
 
@@ -487,11 +497,20 @@ void __init jump_label_init(void)
 
 		/* rewrite NOPs */
 		if (jump_label_type(iter) == JUMP_LABEL_NOP)
+			/*; Iamroot17A 2021.Jan.30 #2
+			 *; jump_label_init에서 JUMP_LABEL_NOP을 초기화 하는 이유
+			 *; B조 로그 참조 (https://github.com/seokbeomKim/iamroot_17th_B)
+			 *; arm에서는 추가 작업을 하지 않는다.
+			 *; */
 			arch_jump_label_transform_static(iter, JUMP_LABEL_NOP);
 
 		if (init_section_contains((void *)jump_entry_code(iter), 1))
 			jump_entry_set_init(iter);
 
+		/*; Iamroot17A 2021.Jan.30 #2.2
+		 *; 동일한 static key를 사용하는 jump entry key인 경우 skip 한다.
+		 *; 그렇지 않은 경우 key entry에 추가한다.
+		 *; */
 		iterk = jump_entry_key(iter);
 		if (iterk == key)
 			continue;

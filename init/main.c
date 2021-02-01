@@ -715,6 +715,15 @@ static int __init do_early_param(char *param, char *val,
 {
 	const struct obs_kernel_param *p;
 
+	/*; Iamroot17A 2021.Jan.30 #3.2
+	 *; include/asm-generic line 882. #define INIT_SETUP(initsetup_align) 매크로에서
+	 *; __setup_start와 __setup_end 사이에 init section을 할당한다.
+	 *; include/linux/init.h line 268 #define early_param 매크로를 따라가면
+	 *; init section에 파라미터를 추가하는 것을 확인할 수 있다.
+	 *; early_param으로 선언된 매크로가 init section 내부에 포함된다.
+	 *; 흐름 참조 (https://decdream.tistory.com/237)
+	 *; earlycon을 사용하여 init section내에 명령어를 확인한다.
+	 *; */
 	for (p = __setup_start; p < __setup_end; p++) {
 		if ((p->early && parameq(param, p->str)) ||
 		    (strcmp(param, "console") == 0 &&
@@ -730,6 +739,11 @@ static int __init do_early_param(char *param, char *val,
 
 void __init parse_early_options(char *cmdline)
 {
+	/*; Iamroot17A 2021.Jan.30 #3.1
+	 *; parse_args의 세 번째 파라미터가 NULL인 경우 do_early_param을 호출한다.
+	 *; parse_early_options 함수는 do_early_param을 고정적으로 사용한다.
+	 *; 그 외에 경우 parse_args 함수를 직접 사용한다.
+	 *; */
 	parse_args("early options", cmdline, NULL, 0, 0, 0, NULL,
 		   do_early_param);
 }
@@ -743,6 +757,10 @@ void __init parse_early_param(void)
 	if (done)
 		return;
 
+	/*; Iamroot17A 2021.Jan.30 #3
+	 *; drivers/of/fdt.c early_init_dt_scan_chosen에서 CONFIG_CMDLINE이 등장한다.
+	 *; DTB chosen 노드의 bootargs 속성 값이 전달된다.
+	 *; */
 	/* All fall through to do_early_param. */
 	strlcpy(tmp_cmdline, boot_command_line, COMMAND_LINE_SIZE);
 	parse_early_options(tmp_cmdline);
