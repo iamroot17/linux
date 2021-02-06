@@ -1012,6 +1012,11 @@ int __init early_init_dt_scan_memory(unsigned long node, const char *uname,
 
 	pr_debug("memory scan node %s, reg size %d,\n", uname, l);
 
+    /*
+     * IAMROOT17A2 21.02.06
+     * dt_root_addr_cells = 2;
+     * dt_root_size_cells = 2;
+     */
 	while ((endp - reg) >= (dt_root_addr_cells + dt_root_size_cells)) {
 		u64 base, size;
 
