@@ -395,6 +395,11 @@ static enum jump_label_type jump_label_type(struct jump_entry *entry)
 	bool branch = jump_entry_is_branch(entry);
 
 	/* See the comment in linux/jump_label.h */
+	/*; Iamroot17A 2021.Jan.30 #2.1
+	 *;
+	 *; dynamic: instruction = enabled ^ branch (런타임)
+	 *; >> include/linux/jump_label.h 참고 (static_branch_likely 정의 상단 설명 부분)
+	 *; */
 	return enabled ^ branch;
 }
 
@@ -472,7 +477,16 @@ void __init jump_label_init(void)
 	cpus_read_lock();
 	jump_label_lock();
 	/*; Iamroot17A 2021.Jan.23 #3
-	 *; 왜 sort가 필요할까 ??
+	 *;
+	 *; 왜 sort가 필요할까?
+	 *;
+	 *; Iamroot17A 2021.Jan.30 #1
+	 *;
+	 *; 아래 for문에서 반복하며 초기화 할 때, jump_label과 static_keys를
+	 *; 동시에 초기화 하게 된다. 이 초기화 과정에서 static_keys의 개수가
+	 *; jump_label의 개수보다 적기 때문에, static_keys의 초기화 중복을
+	 *; 줄이기 위해 정렬한다.
+	 *; (struct jump_entry의 key 주소 -> entry code 주소 순으로 비교함)
 	 *; */
 	jump_label_sort_entries(iter_start, iter_stop);
 
@@ -486,12 +500,27 @@ void __init jump_label_init(void)
 		struct static_key *iterk;
 
 		/* rewrite NOPs */
+		/*; Iamroot17A 2021.Jan.30 #2
+		 *;
+		 *; 이미 NOP인데 다시 NOP로 rewrite하는 이유:
+		 *;  x86의 경우 JMP는 5 bytes로 표현된다. NOP는 1 byte지만,
+		 *;  NOP에 대한 Instruction Cycle을 줄이기 위해 최적화된
+		 *;  NOP 명령으로 교체한다.
+		 *; >> 관련 commit: c3c7f14a116c24d6fba185c95cd7454f3764f8a9
+		 *; >> https://stackoverflow.com/questions/25545470 참고
+		 *; ARM64의 경우 추가 작업을 하지 않는다.
+		 *; */
 		if (jump_label_type(iter) == JUMP_LABEL_NOP)
 			arch_jump_label_transform_static(iter, JUMP_LABEL_NOP);
 
 		if (init_section_contains((void *)jump_entry_code(iter), 1))
 			jump_entry_set_init(iter);
 
+		/*; Iamroot17A 2021.Jan.30 #2.2
+		 *;
+		 *; 동일한 static key를 사용하는 jump entry key인 경우 skip 한다.
+		 *; 그렇지 않은 경우 key entry에 추가한다.
+		 *; */
 		iterk = jump_entry_key(iter);
 		if (iterk == key)
 			continue;
@@ -513,6 +542,11 @@ static enum jump_label_type jump_label_init_type(struct jump_entry *entry)
 	bool branch = jump_entry_is_branch(entry);
 
 	/* See the comment in linux/jump_label.h */
+	/*; Iamroot17A 2021.Jan.30 #2.1.1
+	 *;
+	 *; static: instruction = type ^ branch (컴파일 타임)
+	 *; >> include/linux/jump_label.h 참고 (static_branch_likely 정의 상단 설명 부분)
+	 *; */
 	return type ^ branch;
 }
 
