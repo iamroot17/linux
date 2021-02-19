@@ -716,16 +716,24 @@ static int __init do_early_param(char *param, char *val,
 	const struct obs_kernel_param *p;
 
 	/*; Iamroot17A 2021.Jan.30 #3.2
-	 *; include/asm-generic line 882. #define INIT_SETUP(initsetup_align) 매크로에서
-	 *; __setup_start와 __setup_end 사이에 init section을 할당한다.
-	 *; include/linux/init.h line 268 #define early_param 매크로를 따라가면
-	 *; init section에 파라미터를 추가하는 것을 확인할 수 있다.
-	 *; early_param으로 선언된 매크로가 init section 내부에 포함된다.
-	 *; 흐름 참조 (https://decdream.tistory.com/237)
-	 *; earlycon을 사용하여 init section내에 명령어를 확인한다.
+	 *;
+	 *; __setup_start, __setup_end는 .init.setup 섹션의 시작과 끝을 나타낸다.
+	 *; >> include/asm-generic/vmlinux.lds.h INIT_SETUP(initsetup_align) 매크로 참고
+	 *; .init.setup 섹션을 사용하는 struct obs_kernel_param은 early_param()
+	 *; 매크로 등을 통해 정의된다.
+	 *; >> include/linux/init.h early_param(str, fn) 매크로 참고
+	 *; >> device/tty/serial/earlycon.c earlyparam() 사용 부분 참고
+	 *; >> https://decdream.tistory.com/237 참고 (early param 해석 흐름)
 	 *; */
 	for (p = __setup_start; p < __setup_end; p++) {
 		if ((p->early && parameq(param, p->str)) ||
+		    /*; Iamroot17A 2021.Jan.30 #3.3
+		     *;
+		     *; 최근 console은 earlycon으로 변경되었으나, 전달된
+		     *; parameter가 console인 경우 하위호환성을 보장해주기 위해
+		     *; 아래와 같은 조건문이 추가되었다.
+		     *; >> 관련 commit: 18a8bd949d6adb311ea816125ff65050df1f3f6e
+		     *; */
 		    (strcmp(param, "console") == 0 &&
 		     strcmp(p->str, "earlycon") == 0)
 		) {
@@ -740,9 +748,17 @@ static int __init do_early_param(char *param, char *val,
 void __init parse_early_options(char *cmdline)
 {
 	/*; Iamroot17A 2021.Jan.30 #3.1
-	 *; parse_args의 세 번째 파라미터가 NULL인 경우 do_early_param을 호출한다.
-	 *; parse_early_options 함수는 do_early_param을 고정적으로 사용한다.
-	 *; 그 외에 경우 parse_args 함수를 직접 사용한다.
+	 *;
+	 *; parse_args()의 세 번째, 네 번째 인자가 각각 NULL, 0인 경우 cmdline을
+	 *; 토큰 단위로 분리하여 마지막 인자로 전달된 함수를 호출하게 된다.
+	 *; (현재의 경우 do_early_param()을 호출)
+	 *; (cmdline의 형식이 "$PARAM=$VAL" 방식으로 여러 개의 변수가 전달되며,
+	 *;  각 parameter name에 대해 do_early_param()을 수행한다.)
+	 *;
+	 *; parse_args()의 세 번째, 네 번째 인자가 NULL, 0가 아닌 경우
+	 *; 전달된 struct kernel_param의 내용과 비교하게 된다.
+	 *; >> kernel/module.c 참고 (load_module 함수에서 호출)
+	 *; >> init/main.c start_kernel() 참고 (setup_arch() 이후 다시 호출 됨)
 	 *; */
 	parse_args("early options", cmdline, NULL, 0, 0, 0, NULL,
 		   do_early_param);
@@ -758,8 +774,12 @@ void __init parse_early_param(void)
 		return;
 
 	/*; Iamroot17A 2021.Jan.30 #3
-	 *; drivers/of/fdt.c early_init_dt_scan_chosen에서 CONFIG_CMDLINE이 등장한다.
-	 *; DTB chosen 노드의 bootargs 속성 값이 전달된다.
+	 *;
+	 *; 이전 setup_machine_fdt()에서 fdt를 통해 읽어온 boot_command_line을
+	 *; 사용하여 parse_early_options()를 호출한다.
+	 *; >> arch/arm64/kernel/setup.c 참고 (setup_machine_fdt() 참고)
+	 *; >> drivers/of/fdt.c 참고 (early_init_dt_scan(),
+	 *;     early_init_dt_scan_nodes(), early_init_dt_scan_chosen() 참고)
 	 *; */
 	/* All fall through to do_early_param. */
 	strlcpy(tmp_cmdline, boot_command_line, COMMAND_LINE_SIZE);
