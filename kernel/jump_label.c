@@ -24,6 +24,9 @@ static DEFINE_MUTEX(jump_label_mutex);
 
 void jump_label_lock(void)
 {
+	/*; Iamroot17 2021.Feb.20 #2.1
+	 *; TODO: mutex 관련 부분은 현재 생략하고 넘어감
+	 *; */
 	mutex_lock(&jump_label_mutex);
 }
 
@@ -468,40 +471,64 @@ void __init jump_label_init(void)
 	 * jump_label.h, let's make sure that is safe. There are only two
 	 * cases to check since we initialize to 0 or 1.
 	 */
+	/*; Iamroot17 2021.Feb.20 #1
+	 *; 굳이 ATOMIC_INIT이 직접 대입하는 값과 일치하는지 확인하는 이유:
+	 *;  해당 부분이 추가된 commit을 보면, inclusion loop 문제로 인해
+	 *;  include/linux/jump_label.h 를 리팩토링 하는 과정에서
+	 *;  STATIC_KEY_INIT_TRUE, STATIC_KEY_INIT_FALSE 매크로를 통해 초기화 시
+	 *;  ATOMIC_INIT()을 사용하던 것을 직접 대입으로 변경하였다.
+	 *;  해당 변경에 의한 코드 오류를 방지하기 위해 아래와 같이 검증하는
+	 *;  것으로 예상됨. (왜 ATOMIC_INIT()을 변경했는지에 대한 원인은 모르겠음
+	 *; >> 관련 commit: 1f69bf9c6137602cd028c96b4f8329121ec89231
+	 *; */
 	BUILD_BUG_ON((int)ATOMIC_INIT(0) != 0);
 	BUILD_BUG_ON((int)ATOMIC_INIT(1) != 1);
 
 	if (static_key_initialized)
 		return;
 
+	/*; Iamroot17 2021.Feb.20 #2
+	 *; cpus_read_lock()을 하는 이유:
+	 *;  ARM64인 경우 start_kernel() => setup_arch() => jump_label_init()
+	 *;  과정을 통해 먼저 호출되지만 다른 아키텍처의 경우, setup_arch()에서
+	 *;  jump_label_init()이 호출되는 것을 보장할 수 없다.
+	 *;  만약 setup_arch()에서 jump_label_init()이 호출되지 않은 경우에도
+	 *;  start_kernel() => page_alloc_init() 이후 호출하는 부분이 존재한다.
+	 *;  즉, jump_label_init()이 호출 되기 전에 smp들이 설정되어 동작하고
+	 *;  있을 수 있다. 이 때 동기화를 위해 lock을 하는 것으로 예상됨.
+	 *; TODO: cpus_read_lock()의 구현이 왜 percpu_down_read()로 구현되는가?
+	 *;       현재 추측으로는 cpu hotplug로 인해 생기는 문제를 방지하기
+	 *;       위한 것으로 예상됨.
+	 *; */
 	cpus_read_lock();
 	jump_label_lock();
 	/*; Iamroot17A 2021.Jan.23 #3
-	 *;
-	 *; 왜 sort가 필요할까?
-	 *;
 	 *; Iamroot17A 2021.Jan.30 #1
-	 *;
-	 *; 아래 for문에서 반복하며 초기화 할 때, jump_label과 static_keys를
-	 *; 동시에 초기화 하게 된다. 이 초기화 과정에서 static_keys의 개수가
-	 *; jump_label의 개수보다 적기 때문에, static_keys의 초기화 중복을
-	 *; 줄이기 위해 정렬한다.
-	 *; (struct jump_entry의 key 주소 -> entry code 주소 순으로 비교함)
+	 *; 정렬이 필요한 이유:
+	 *;  아래 for문에서 반복하며 초기화 할 때, jump_label과 static_keys를
+	 *;  동시에 초기화 하게 된다. 이 초기화 과정에서 static_keys의 개수가
+	 *;  jump_label의 개수보다 적기 때문에, static_keys의 초기화 중복을
+	 *;  줄이기 위해 정렬한다.
+	 *;  (struct jump_entry의 key 주소 -> entry code 주소 순으로 비교함)
 	 *; */
 	jump_label_sort_entries(iter_start, iter_stop);
 
 	/*; Iamroot17A 2021.Jan.23 #4
-	*; include/asm-generic/vmlinux.lds.h
-	*; arch_static_branch_jump .pushsection	__jump_table
-	*; __jump_table을 push section에 넣는다.
-	*; arch/arm64/include/asm/jump_label.h
-	*; */
+	 *; Iamroot17 2021.Feb.20 #3
+	 *; jump_entry가 정의된 arch_static_branch(), arch_static_branch_jump()의
+	 *; 내부 코드 블럭은 __jump_table section으로 정의되어있다.
+	 *; (.pushsection __jump_table 에서 .popsection 까지의 assembly 코드)
+	 *; 링커 스크립트에서 __jump_table section의 시작과 끝이
+	 *; __start___jumptable, __stop___jumptable으로 정의되어 있다.
+	 *; (지역변수 iter_start, iter_stop이 해당 주소로 초기화되어있다.)
+	 *; >> arch/arm64/include/asm/jump_label.h 참고 (jump_entry의 코드 정의)
+	 *; >> include/asm-generic/vmlinux.lds.h 참고 (#define JUMP_TABLE_DATA 참고)
+	 *; */
 	for (iter = iter_start; iter < iter_stop; iter++) {
 		struct static_key *iterk;
 
 		/* rewrite NOPs */
 		/*; Iamroot17A 2021.Jan.30 #2
-		 *;
 		 *; 이미 NOP인데 다시 NOP로 rewrite하는 이유:
 		 *;  x86의 경우 JMP는 5 bytes로 표현된다. NOP는 1 byte지만,
 		 *;  NOP에 대한 Instruction Cycle을 줄이기 위해 최적화된
@@ -517,7 +544,6 @@ void __init jump_label_init(void)
 			jump_entry_set_init(iter);
 
 		/*; Iamroot17A 2021.Jan.30 #2.2
-		 *;
 		 *; 동일한 static key를 사용하는 jump entry key인 경우 skip 한다.
 		 *; 그렇지 않은 경우 key entry에 추가한다.
 		 *; */
