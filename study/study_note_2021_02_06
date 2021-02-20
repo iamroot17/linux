@@ -1,0 +1,57 @@
+memblock_reserve()
+
+memblock
+- http://jake.dothome.co.kr/memblock-1/
+- 커널 부트업 타임에 먼저 활성화되어 사용되는 메모리 할당자 : static하게 초기화 되는 듯
+- 메모리 핫플러그 기능이 활성화되어 있으면 런타임에도 사용
+- memory, reserve, physmem type으로 관리된다
+- memblock 관련 초기화 과정 : http://jake.dothome.co.kr/memblock-2/
+- arm64_memblock_init() : http://jake.dothome.co.kr/arm64_memblock_init/
+
+memblock_reserve()
+
+DTB 구조
+- https://devicetree-specification.readthedocs.io/en/stable/flattened-format.html
+- http://jake.dothome.co.kr/dtb1/
+- Header, memory reservation block, structure block, string block으로 구성됨
+- Header : 전체 DTB 구조와 정보, 각 블록의 offset과 크기를 알려줌
+- Memory reservation block : client program이 접근하면 안되는 memory reservation block에 대한 정보를 담고 있고 접근 가능한 경우 접근 방법을 기술함
+- Structure block : 각 노드의 시작, 끝, 각 노드의 속성들과 그 이름, 속성 값에 대한 정보를 가짐. 속성 이름은 string block에 있으며 structure block에서는 offset 정보만 들어있음
+- String block : 모든 노드들의 속성 이름들이 저장되어 있다
+- 각 structure block 정보는 4 byte 단위로 정렬됨
+- 각 속성값은 ascii 코드로 되어 있다
+- & 표시는 다른 노드를 나타내는 reference
+- https://events.static.linuxfound.org/sites/events/files/slides/petazzoni-device-tree-dummies.pdf
+
+early_init_dt_scan(dt_virt)
+
+전역 변수 initial_boot_params : FDT 가상 주소
+
+early_init_dt_verify()
+- FDT header 체크
+- FDT 전체에 대해 CRC32 계산하여 전역변수에 저장
+
+early_init_dt_scan_nodes()
+
+of_scan_flat_dt() 함수
+- FDT를 스캔하고 callback 함수를 실행함
+- callback에 data 인자를 넣어서 실행
+- 1번 1이 return되면 loop에서 빠져 나온다
+
+early_init_dt_scan_chosen()
+- “chosen” node만 골라서 아래 작업을 수행함
+- early_init_dt_check_for_initrd()
+- “linux,initrd-start” 및 “linux,init-end” property를 골라서 해당 property value를 전역변수 phys_initrd_start와 phys_initrd_size를 계산하고 저장함
+- 이를 통해 보았을 때 “linux,initrd-start” 및 “linux,init-end” property value는 물리주소 값으로 생각됨
+- “bootargs” property를 찾아서 FDT로부터 command line을 가져옴
+없으면 default command line을 사용한다
+- “rng-seed” property를 찾아서 hw random number 또는 device random number로 세팅하고 DTB에서 해당 property를 찾아서 모두 제거한다
+- 그리고 FDT CRC32를 다시 계산한다
+- 이 때 property를 찾는 함수는 fdt_get_property_w를 사용하는데 복잡하게 casting되어 있고 이는 DTB 내용을 삭제해야 하기 때문에 const pointer를 쓸 수 없기 때문이다
+- https://github.com/iamroot12CD/linux/issues/16
+- 일반적으로 property를 찾을 때는 of_get_flat_dt_prop() 함수 등을 사용한다
+
+early_init_dt_scan_root()
+- 해당 노드에서 “#size-cells” 및 “#address-cells” property를 검색해서 전역 변수 dt_root_size_cells와 dt_root_addr_cells에 저장한다
+
+
