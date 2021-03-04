@@ -74,6 +74,11 @@ static inline void local_daif_restore(unsigned long flags)
 	if (!irq_disabled) {
 		trace_hardirqs_on();
 
+	/*; Iamroot17 2021.Feb.27 #1
+         *; system_uses_irq_prio_masking()에서
+         *; CONFIG_ARM64_PSEUDO_NMI가 활성화되어 있는지 확인한다.
+         *; 활성화되어 있는 경우, SYS_ICC_PMR_EL1에 GIC_PRIO_IRQON priority mask를 설정한다.
+         *; */
 		if (system_uses_irq_prio_masking()) {
 			gic_write_pmr(GIC_PRIO_IRQON);
 			pmr_sync();
@@ -81,6 +86,14 @@ static inline void local_daif_restore(unsigned long flags)
 	} else if (system_uses_irq_prio_masking()) {
 		u64 pmr;
 
+	/*; Iamroot17 2021.Feb.27 #2
+         *; 활성화되어있지 않은 경우
+         *; DAF 중 A를 확인한다.
+         *; flags의 PSR_A_BIT가 0이면 I도 0으로 설정한다.
+         *; pmr의 우선순위를 GIC_PRIO_IRQOFF(0x60)으로 설정한다.
+         *; flags의 PSR_A_BIT가 1이면 I도 1으로 설정한다.
+         *; pmr의 우선순위를 GIC_PRIO_IRQON | GIC_PRIO_PSR_I_SET (0xf0)으로 설정한다.
+         *; */
 		if (!(flags & PSR_A_BIT)) {
 			/*
 			 * If interrupts are disabled but we can take
@@ -114,6 +127,12 @@ static inline void local_daif_restore(unsigned long flags)
 		gic_write_pmr(pmr);
 	}
 
+	/*; Iamroot17 2021.Feb.27 #3
+	 *; flags를 daif 레지스터에 작성한다.
+	 *; write_sysreg 함수가 호출되기 전 daif 레지스터는 모두 1로 설정되어 있다.
+	 *; by Arm Reference Manual f.c version
+	 *; 현재 I flag만 설정되어 있으므로 I는 1로 DAF는 0으로 설정된다.
+	 *; */
 	write_sysreg(flags, daif);
 
 	if (irq_disabled)
