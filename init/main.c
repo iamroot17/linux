@@ -722,7 +722,7 @@ static int __init do_early_param(char *param, char *val,
 	 *; .init.setup 섹션을 사용하는 struct obs_kernel_param은 early_param()
 	 *; 매크로 등을 통해 정의된다.
 	 *; >> include/linux/init.h early_param(str, fn) 매크로 참고
-	 *; >> device/tty/serial/earlycon.c earlyparam() 사용 부분 참고
+	 *; >> drivers/tty/serial/earlycon.c earlyparam() 사용 부분 참고
 	 *; >> https://decdream.tistory.com/237 참고 (early param 해석 흐름)
 	 *; */
 	for (p = __setup_start; p < __setup_end; p++) {

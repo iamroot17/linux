@@ -176,4 +176,56 @@
   + kernel/jump_label.c
   + jump_label_init() 분석
 + RCU 이론 스터디
++ commit : a1ee33e2b3f9b76605e8c878df7a822ad1c765bf
+------
+
+### 2020년 22주차 스터디
++ 2021년 1월 23일
++ init/main.c start_kernel() 분석 중
+  + kernel/jump_label.c
+  + jump_label_init() 분석
+  + cpus_read_lock() 분석
+   + percpu_down_read
++ 이론 스터디
+  + spin-lock 
++ commit : 57aac235b4ff8fd2661ab08b5624a63909ea9284
+------
+
+### 2020년 23주차 스터디
++ 2021년 1월 30일
++ init/main.c start_kernel() 분석 중
+  + kernel/jump_label.c
+  + jump_label_init() 분석
+   + jump_entry 구조
+  + parse_early_param() 분석
++ 이론 스터디
+  + spin-lock 및 qspin-lock (MCS lock)
++ commit : 1d16538d546e99a876cbca3dc3eff12bfa3487dd
+------
+
+### 2020년 24주차 스터디
++ 2021년 2월 6일
++ init/main.c start_kernel() 분석 중
+  + local_daif_restore 분석
+  + xen_early_init (생략)
++ 이론 스터디
+  + spin-lock 및 qspin-lock (MCS lock)
+------
+
+### 2020년 25주차 스터디
++ 2021년 2월 20일
++ 조 통합
++ init/main.c start_kernel() 분석 중
+  + kernel/jump_label.c 내 기존 스터디 설명 보충
++ 이론 스터디
+  + Cache 및 버퍼, Cache Coherency
+------
+
+### 2020년 26주차 스터디
++ 2021년 2월 27일
++ init/main.c start_kernel() 분석 중
+  + parse_early_param() 분석
+  + local_daif_restore() 분석
++ 이론 스터디
+  + Cache 기본 동작
 ------
