@@ -385,6 +385,11 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
 	 * earlycon. (Report possible System Errors once we can report this
 	 * occurred).
 	 */
+	/*; Iamroot17 27.Feb.2021 #1
+	 *; parse_early_param()에서 earlycon을 활성화 했으므로, 추후 오류를
+	 *; 확인하기 위해 asynchronous abort를 활성화한다.
+	 *; TODO: asynchrounous abort는 이해되는데 왜 fiq는 활성화 하는가?
+	 *; */
 	local_daif_restore(DAIF_PROCCTX_NOIRQ);
 
 	/*

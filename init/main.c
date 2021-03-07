@@ -716,19 +716,18 @@ static int __init do_early_param(char *param, char *val,
 	const struct obs_kernel_param *p;
 
 	/*; Iamroot17A 2021.Jan.30 #3.2
-	 *;
 	 *; __setup_start, __setup_end는 .init.setup 섹션의 시작과 끝을 나타낸다.
 	 *; >> include/asm-generic/vmlinux.lds.h INIT_SETUP(initsetup_align) 매크로 참고
 	 *; .init.setup 섹션을 사용하는 struct obs_kernel_param은 early_param()
 	 *; 매크로 등을 통해 정의된다.
-	 *; >> include/linux/init.h early_param(str, fn) 매크로 참고
-	 *; >> drivers/tty/serial/earlycon.c earlyparam() 사용 부분 참고
+	 *; >> include/linux/init.h struct obs_kernel_param 구조체,
+	 *;     early_param(str, fn), __setup_param(str, unique_id, fn, early) 매크로 참고
+	 *; >> drivers/tty/serial/earlycon.c early_param() 매크로 사용 부분 참고
 	 *; >> https://decdream.tistory.com/237 참고 (early param 해석 흐름)
 	 *; */
 	for (p = __setup_start; p < __setup_end; p++) {
 		if ((p->early && parameq(param, p->str)) ||
 		    /*; Iamroot17A 2021.Jan.30 #3.3
-		     *;
 		     *; 최근 console은 earlycon으로 변경되었으나, 전달된
 		     *; parameter가 console인 경우 하위호환성을 보장해주기 위해
 		     *; 아래와 같은 조건문이 추가되었다.
@@ -748,13 +747,11 @@ static int __init do_early_param(char *param, char *val,
 void __init parse_early_options(char *cmdline)
 {
 	/*; Iamroot17A 2021.Jan.30 #3.1
-	 *;
 	 *; parse_args()의 세 번째, 네 번째 인자가 각각 NULL, 0인 경우 cmdline을
 	 *; 토큰 단위로 분리하여 마지막 인자로 전달된 함수를 호출하게 된다.
 	 *; (현재의 경우 do_early_param()을 호출)
 	 *; (cmdline의 형식이 "$PARAM=$VAL" 방식으로 여러 개의 변수가 전달되며,
 	 *;  각 parameter name에 대해 do_early_param()을 수행한다.)
-	 *;
 	 *; parse_args()의 세 번째, 네 번째 인자가 NULL, 0가 아닌 경우
 	 *; 전달된 struct kernel_param의 내용과 비교하게 된다.
 	 *; >> kernel/module.c 참고 (load_module 함수에서 호출)
@@ -774,7 +771,6 @@ void __init parse_early_param(void)
 		return;
 
 	/*; Iamroot17A 2021.Jan.30 #3
-	 *;
 	 *; 이전 setup_machine_fdt()에서 fdt를 통해 읽어온 boot_command_line을
 	 *; 사용하여 parse_early_options()를 호출한다.
 	 *; >> arch/arm64/kernel/setup.c 참고 (setup_machine_fdt() 참고)
@@ -877,11 +873,9 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	char *after_dashes;
 
 	/*; Iamroot17A 2020.Nov.28 #1
-	 *;
 	 *; set_task_stack_end_magic의 Arg로 전달된 init_task 분석
 	 *; (struct task_struct 및 초기 값 분석)
-	 *;
-	 *; 항목이 너무 많아 초반 부분만 다루고 나중에 필요시 확인하기로 함.
+	 *; TODO: 항목이 너무 많아 초반 부분만 분석, 나중에 필요시 확인하기로 함
 	 *; */
 	set_task_stack_end_magic(&init_task);
 	smp_setup_processor_id();
@@ -890,7 +884,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	cgroup_init_early();
 
 	/*; Iamroot17A 2020.Dec.12 #1
-	 *;
 	 *; 현재 CPU의 IRQ exception 발생을 막는다.
 	 *; */
 	local_irq_disable();
@@ -907,7 +900,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	 *; */
 	boot_cpu_init();
 	/*; Iamroot17A 2020.Dec.12 #3
-	 *;
 	 *; page_address_init()은 32bit 시스템은 HIGHMEM 영역을 사용할 때
 	 *; 초기화를 하지만, 현재 분석중인 64bit환경에서는 무의미하므로
 	 *; 자세하게 분석하지 않음.
@@ -917,7 +909,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	page_address_init();
 	pr_notice("%s", linux_banner);
 	/*; Iamroot17A 2020.Dec.19 #1
-	 *;
 	 *; security 관련 기능을 초기화한다. (security는 자세히 다루지 않는다.)
 	 *; */
 	early_security_init();
