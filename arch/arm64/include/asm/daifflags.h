@@ -76,26 +76,26 @@ static inline void local_daif_restore(unsigned long flags)
 	 *; 현재 커널 환경이 Priority Masking을 지원한다면,
 	 *; PMR(Priority Masking Register)를 변경하며, 상황에 따라 I flag를
 	 *; 입력된 값에서 수정하여 설정하기도 한다.
-	 *; Priority Masking: IRQ 중 PMR의 값보다 큰 번호의(우선순위가 낮은)
+	 *; Priority Masking: IRQ 중 PMR보다 우선순위가 낮은 (값이 큰)
 	 *;                   Interrupt는 무시하는 방식
-	 *; (현재 분석의 기준이 되는 defconfig에서는 PMR을 지원하지 않으나,
-	 *;  이를 지원한다 가정하고, 어떤 점이 바뀌는 지에 대해 간략하게 분석함)
+	 *; (현재 분석의 기준이 되는 defconfig에서는 priority masking을 지원하지
+	 *;  않으나, 지원할 경우 어떤 처리가 필요한지에 대해 간략하게 분석함)
 	 *; */
 	if (!irq_disabled) {
 		trace_hardirqs_on();
 
-		/*; Iamroot17 2021.Feb.27 #1.1
-		 *; 설정할 DAIF 값이 IRQ를 활성화하며 priority masking을
-		 *; 지원하는 경우, GIC의 PMR 값을 IRQ를 켠 상태의 값으로 설정한다.
-		 *; (GIC_PRIO_IRQON == 0xE0)
-		 *; */
 		if (system_uses_irq_prio_masking()) {
+			/*; Iamroot17 2021.Feb.27 #1.1
+			 *; 설정할 DAIF가 IRQ를 활성화하고, priority masking을
+			 *; 지원하는 경우, GIC의 PMR 값을 IRQ를 켰을 때의 값으로
+			 *; 설정한다. (GIC_PRIO_IRQON == 0xE0)
+			 *; */
 			gic_write_pmr(GIC_PRIO_IRQON);
 			pmr_sync();
 		}
 	} else if (system_uses_irq_prio_masking()) {
 		/*; Iamroot17 2021.Feb.27 #1.2
-		 *; 설정할 DAIF 값이 IRQ를 비활성화 하더라도, priority masking이
+		 *; 설정할 DAIF가 IRQ를 비활성화 하더라도, priority masking이
 		 *; 지원된다면, (system_uses_irq_prio_masking()으로 확인)
 		 *; 상황에 따라 DAIF의 I flag 값을 변경한다.
 		 *; */
@@ -107,24 +107,23 @@ static inline void local_daif_restore(unsigned long flags)
 			 * asynchronous errors, we can take NMIs
 			 */
 			/*; Iamroot17 2021.Feb.27 #1.2.1
-			 *; IRQ를 비활성화 하더라도 SError(System Error, Async Error)가
-			 *; 활성화 된 경우, pseudo-NMI를 사용할 수 있으므로
-			 *; DAIF에서 I flag를 변경한다. (0 => IRQ 익셉션 활성화)
+			 *; SError(System Error)를 처리하는 경우, pseudo-NMI를
+			 *; 적용하는 것으로 판단하여, DAIF에서 I flag를
+			 *; 변경한다. (0 => IRQ 익셉션 활성화)
 			 *; GIC의 PMR 값을 IRQ를 끈 상태의 값으로 설정한다.
+			 *; NMI의 priority는 0x20이므로 NMI IRQ를 처리하게 한다.
 			 *; (GIC_PRIO_IRQOFF == 0x60)
+			 *; >> drivers/irqchip/irq-gic-v3.c 참고 (GIC_INT_NMI_PRI)
 			 *; */
 			flags &= ~PSR_I_BIT;
 			pmr = GIC_PRIO_IRQOFF;
 		} else {
 			/*; Iamroot17 2021.Feb.27 #1.2.2
-			 *; pseudo-NMI를 사용할 수 없으므로, PMR의 값이
-			 *; IRQ disable에 맞게 변경되어야 한다.
-			 *; Priority masking이 적용되는 상황인 경우, I flag보다
-			 *; PMR의 값이 중요하지만, local_irq_save() 할 때
-			 *; PMR의 값을 보존하지 않기 때문에 PMR의 값이 원하지
-			 *; 않는 상태로 변경될 가능성이 있다.
-			 *; 이런 문제를 해결하기 위해 GIC_PRIO_PSR_I_SET bit를
-			 *; 설정하여 PMR값이 IRQ disable에 맞게 동작하도록 설정한다.
+			 *; SError를 처리하지 않으므로 pseudo-NMI를 적용하지
+			 *; 않는 것으로 판단한다.
+			 *; 기존에는 PMR을 IRQON IRQOFF로 구분했는데, I가 set된
+			 *; 경우(NMI까지 비활성화 할 때)를 구분하기 위해
+			 *; GIC_PRIO_PSR_I_SET을 사용하여 구분한다.
 			 *; (GIC_PRIO_IRQON | GIC_PRIO_PSR_I_SET == 0xF0)
 			 *; >> 관련 commit: bd82d4bd21880b7c4d5f5756be435095d6ae07b5
 			 *; */
