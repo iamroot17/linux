@@ -1,231 +1,242 @@
 
-## IAMROOT17A Ä¿³Î ½ºÅÍµğ
-### ÄÚµå ¹öÀü : mainline 5.9
+## IAMROOT17A ì»¤ë„ ìŠ¤í„°ë””
+### ì½”ë“œ ë²„ì „ : mainline 5.9
 
-### 2020³â 8ÁÖÂ÷ ½ºÅÍµğ
+------
 
-+ 2020³â 10¿ù 17ÀÏ
+### 1~7ì£¼ì°¨ ìŠ¤í„°ë””
++ ì»¤ë„ ì´ë¡  ê³µë¶€ (ë¦¬ëˆ…ìŠ¤ ì»¤ë„ ë‚´ë¶€ êµ¬ì¡°)
++ ARM ì•„í‚¤í…ì²˜ ê³µë¶€ (ì½”ë“œë¡œ ì•Œì•„ë³´ëŠ” ARM ë¦¬ëˆ…ìŠ¤ ì»¤ë„ 2íŒ)
+------
+
+### 8ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 10ì›” 17ì¼
 + head.S
-  + SYM_CODE_START(primary_entry) ÁøÇàÁß
+  + SYM_CODE_START(primary_entry) ì§„í–‰ì¤‘
   + SYM_CODE_START_LOCAL(preserve_boot_args)
   + SYM_FUNC_START_PI(__inval_dcache_area)
-  + SYM_FUNC_START(el2_setup) ÁøÇàÁß
+  + SYM_FUNC_START(el2_setup) ì§„í–‰ì¤‘
 + commit : 8b34c33c56ad2cb0cce45a974e078cb993470073
 ------
 
-### 2020³â 9ÁÖÂ÷ ½ºÅÍµğ
-+ 2020³â 10¿ù 24ÀÏ
+### 9ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 10ì›” 24ì¼
 + head.S
-  + SYM_CODE_START(primary_entry) ÁøÇàÁß
+  + SYM_CODE_START(primary_entry) ì§„í–‰ì¤‘
   + SYM_FUNC_START(el2_setup)
   + SYM_FUNC_START_LOCAL(set_cpu_boot_mode_flag)
-  + SYM_FUNC_START_LOCAL(__create_page_tables) ÁøÇàÁß
+  + SYM_FUNC_START_LOCAL(__create_page_tables) ì§„í–‰ì¤‘
 + commit : a9766d1e06fe2c48e9325cc7212f6b231a9063d4
 ------
 
-### 2020³â 10ÁÖÂ÷ ½ºÅÍµğ
-+ 2020³â 10¿ù 31ÀÏ
+### 10ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 10ì›” 31ì¼
 + head.S
-  + SYM_CODE_START(primary_entry) ÁøÇàÁß
-  + SYM_FUNC_START_LOCAL(__create_page_tables) ÁøÇàÁß
+  + SYM_CODE_START(primary_entry) ì§„í–‰ì¤‘
+  + SYM_FUNC_START_LOCAL(__create_page_tables) ì§„í–‰ì¤‘
     + .macro compute_indices
     + .macro map_memory
     + .macro populate_entries
     + .macre phys_to_pte
 ------
 
-### 2020³â 11ÁÖÂ÷ ½ºÅÍµğ
-+ 2020³â 11¿ù 7ÀÏ
+### 11ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 11ì›” 7ì¼
 + head.S
-  + SYM_CODE_START(primary_entry) ÁøÇàÁß
-  + SYM_FUNC_START_LOCAL(__create_page_tables) ÁøÇàÁß
+  + SYM_CODE_START(primary_entry) ì§„í–‰ì¤‘
+  + SYM_FUNC_START_LOCAL(__create_page_tables) ì§„í–‰ì¤‘
   
-    .macro compute_indices °ü·Ã ¸µÅ©
+    .macro compute_indices ê´€ë ¨ ë§í¬
     1. http://www.iamroot.org/xe/index.php?mid=Programming&document_srl=207287
-    2. http://jake.dothome.co.kr/head-64/ (compute_indices count °¡ count -1·Î °í·ÁÇÏ´Â ÀÌÀ¯)
+    2. http://jake.dothome.co.kr/head-64/ (compute_indices count ê°€ count -1ë¡œ ê³ ë ¤í•˜ëŠ” ì´ìœ )
 
   + SYM_FUNC_START(_cpu_setup)
-    + MAIR_EL1_SET : 0x00_00_bb_ff_44_0c_04_00 ±¸Á¶
+    + MAIR_EL1_SET : 0x00_00_bb_ff_44_0c_04_00 êµ¬ì¡°
 ------
 
-### 2020³â 12ÁÖÂ÷ ½ºÅÍµğ
-+ 2020³â 11¿ù 14ÀÏ
+### 12ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 11ì›” 14ì¼
 + head.S
-  + SYM_CODE_START(primary_entry) ÁøÇàÁß
+  + SYM_CODE_START(primary_entry) ì§„í–‰ì¤‘
     + .macro tcr_compute_pa_size
-    + https://stackoverflow.com/questions/53065579/confusion-about-arm-documentation-on-carry-flag(¸¶ÀÌ³Ê½º Ä³¸®¿¡ °üÇÑ ³»¿ë)
+    + https://stackoverflow.com/questions/53065579/confusion-about-arm-documentation-on-carry-flag(ë§ˆì´ë„ˆìŠ¤ ìºë¦¬ì— ê´€í•œ ë‚´ìš©)
 
   + SYM_FUNC_START_LOCAL(_primary_switch)
   + SYM_FUNC_START(_enable_mmu)
   + SYM_FUNC_START_LOCAL(_relocate_kernel)
-  + SYM_FUNC_START_LOCAL(_primary_switched) ÁøÇàÁß
+  + SYM_FUNC_START_LOCAL(_primary_switched) ì§„í–‰ì¤‘
 ------
 
-### 2020³â 13ÁÖÂ÷ ½ºÅÍµğ
-+ 2020³â 11¿ù 21ÀÏ
-+ head.S Á¾·á
-  + SYM_CODE_START_LOCAL(__primary_switched) ºĞ¼®
-  + Exception Vector ¼³Á¤
-    + Exception Vector ÄÚµå ±¸¼º ºĞ¼®
+### 13ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 11ì›” 21ì¼
++ head.S ì¢…ë£Œ
+  + SYM_CODE_START_LOCAL(__primary_switched) ë¶„ì„
+  + Exception Vector ì„¤ì •
+    + Exception Vector ì½”ë“œ êµ¬ì„± ë¶„ì„
       
-  + BSS ÃÊ±âÈ­ °úÁ¤ ºĞ¼®
-  + __pi_memset ½Éº¼ È®ÀÎ
-  + KASLRÀ» À§ÇÑ offset »ı¼º °úÁ¤ ºĞ¼®
+  + BSS ì´ˆê¸°í™” ê³¼ì • ë¶„ì„
+  + __pi_memset ì‹¬ë³¼ í™•ì¸
+  + KASLRì„ ìœ„í•œ offset ìƒì„± ê³¼ì • ë¶„ì„
   + kaslr_early_init()
-  + KASLR Ãë¼Ò/Àû¿ë ÀÌÈÄ start_kernel()·Î ÁøÀÔÇÏ´Â °úÁ¤ ºĞ¼®
-  + KASLR Àû¿ë ½Ã MMU ºñÈ°¼ºÈ­ ÇÏ°í init_pg_dir Àç»ı¼º ¹× relocate È®ÀÎ
+  + KASLR ì·¨ì†Œ/ì ìš© ì´í›„ start_kernel()ë¡œ ì§„ì…í•˜ëŠ” ê³¼ì • ë¶„ì„
+  + KASLR ì ìš© ì‹œ MMU ë¹„í™œì„±í™” í•˜ê³  init_pg_dir ì¬ìƒì„± ë° relocate í™•ì¸
 + commit : c60091335faba38a0a7d814880586967bb55cf16
 ------
 
-### 2020³â 14ÁÖÂ÷ ½ºÅÍµğ
-+ 2020³â 11¿ù 28ÀÏ
-+ init/main.c start_kernel() ºĞ¼® ½ÃÀÛ
-  + init_task ¹× struct task_struct ºĞ¼®
-  + set_task_stack_end_magic() ºĞ¼®
-  + smp_setup_processor_id() ºĞ¼®
-    + MPIDR_EL1, MIDR_EL1 ºĞ¼®
+### 14ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 11ì›” 28ì¼
++ init/main.c start_kernel() ë¶„ì„ ì‹œì‘
+  + init_task ë° struct task_struct ë¶„ì„
+  + set_task_stack_end_magic() ë¶„ì„
+  + smp_setup_processor_id() ë¶„ì„
+    + MPIDR_EL1, MIDR_EL1 ë¶„ì„
 
-  + debug_object_early_init() ºĞ¼®
-  + cgroup_init_early() ºĞ¼®
-    + cgrp_dfl_rootÀÇ Á¤ÀÇ (DEFINE_PER_CPU ºĞ¼®)
-    + init_cgroup_root() ºĞ¼®
-    + list.hÀÇ INIT_LIST_HEAD¿¡¼­ WRITE_ONCE »ç¿ë ÀÌÀ¯ ºĞ¼®
-  + atomic_setÀÇ architecture dependent ±¸Çö Èå¸§ ºĞ¼®
-  + init_cgroup_housekeeping() ºĞ¼®
-    + Ä¿³Î ³» linked list »ç¿ë¹ı¿¡ ´ëÇÑ ºĞ¼®
-    + mutex, spin_lock, optimistic_spin_queue ºĞ¼®
-    + prev_cputime ºĞ¼®
-    + for_each_subsys() ¸ÅÅ©·Î ºĞ¼®
+  + debug_object_early_init() ë¶„ì„
+  + cgroup_init_early() ë¶„ì„
+    + cgrp_dfl_rootì˜ ì •ì˜ (DEFINE_PER_CPU ë¶„ì„)
+    + init_cgroup_root() ë¶„ì„
+    + list.hì˜ INIT_LIST_HEADì—ì„œ WRITE_ONCE ì‚¬ìš© ì´ìœ  ë¶„ì„
+  + atomic_setì˜ architecture dependent êµ¬í˜„ íë¦„ ë¶„ì„
+  + init_cgroup_housekeeping() ë¶„ì„
+    + ì»¤ë„ ë‚´ linked list ì‚¬ìš©ë²•ì— ëŒ€í•œ ë¶„ì„
+    + mutex, spin_lock, optimistic_spin_queue ë¶„ì„
+    + prev_cputime ë¶„ì„
+    + for_each_subsys() ë§¤í¬ë¡œ ë¶„ì„
 
-  + cgroupÀÇ °³³ä µî ÀÌ·ĞÀûÀÎ ºÎºĞ Ãß°¡ ºĞ¼®
-  + IDR/IDA ºĞ¼®
+  + cgroupì˜ ê°œë… ë“± ì´ë¡ ì ì¸ ë¶€ë¶„ ì¶”ê°€ ë¶„ì„
+  + IDR/IDA ë¶„ì„
 + commit : 27246bf040abce66f3769f9e752a374d73b403af
 ------
 
-### 2020³â 15ÁÖÂ÷ ½ºÅÍµğ
-+ 2020³â 12¿ù 5ÀÏ
- + kernel/cgroup/cgroup.c cgroup_init_early() ºĞ¼® ¸¶¹«¸®
-  + cgroupÀÇ °³³ä µî ÀÌ·ĞÀûÀÎ ºÎºĞ Ãß°¡ ºĞ¼®
-  + IDR/IDA ºĞ¼®
+### 15ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 12ì›” 5ì¼
+ + kernel/cgroup/cgroup.c cgroup_init_early() ë¶„ì„ ë§ˆë¬´ë¦¬
+  + cgroupì˜ ê°œë… ë“± ì´ë¡ ì ì¸ ë¶€ë¶„ ì¶”ê°€ ë¶„ì„
+  + IDR/IDA ë¶„ì„
 + commit : a1266cfe8ec347cc5d671ecd822ec9d29dc9ebfa
 ------
 
-### 2020³â 16ÁÖÂ÷ ½ºÅÍµğ
-+ 2020³â 12¿ù 12ÀÏ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + local_irq_disable() ºĞ¼®
-  + boot_cpu_init() ºĞ¼®
-  + page_address_init() ºĞ¼®
-  + pr_notice() ºĞ¼® (linux_banner)
-  + ARM64¿¡¼­ ±¸ÇöµÈ atomic operation °ü·Ã ³»¿ë ºĞ¼®
-   LL/SC, LSE¹æ½ÄÀ¸·Î ±¸ÇöµÈ atomic operation È®ÀÎ
-   bitops¿¡¼­ ±¸ÇöµÈ CAS(Compare-And-Swap) ¹æ½Ä È®ÀÎ
+### 16ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 12ì›” 12ì¼
++ init/main.c start_kernel() ë¶„ì„ ì¤‘
+  + local_irq_disable() ë¶„ì„
+  + boot_cpu_init() ë¶„ì„
+  + page_address_init() ë¶„ì„
+  + pr_notice() ë¶„ì„ (linux_banner)
+  + ARM64ì—ì„œ êµ¬í˜„ëœ atomic operation ê´€ë ¨ ë‚´ìš© ë¶„ì„  
+    LL/SC, LSEë°©ì‹ìœ¼ë¡œ êµ¬í˜„ëœ atomic operation í™•ì¸  
+    bitopsì—ì„œ êµ¬í˜„ëœ CAS(Compare-And-Swap) ë°©ì‹ í™•ì¸
 + commit : fd6d33e4da3d349f1e2d3c96eaeab174c7a5a034
 ------
 
-### 2020³â 17ÁÖÂ÷ ½ºÅÍµğ
-+ 2020³â 12¿ù 19ÀÏ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + early_security_init() ºĞ¼®
-  + setup_arch() ºĞ¼® Áß
-  + kaslr_requires_kpit() ºĞ¼®
-  + early_fixmap_init() ºĞ¼® Áß
-  + atomic_ops ±¸ÇöÀÇ static key ±â¼ú ºĞ¼®
+### 17ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 12ì›” 19ì¼
++ init/main.c start_kernel() ë¶„ì„ ì¤‘
+  + early_security_init() ë¶„ì„
+  + arch/arm64/kernel/setup.c setup_arch() ë¶„ì„ ì¤‘
+    + kaslr_requires_kpit() ë¶„ì„
+    + early_fixmap_init() ë¶„ì„ ì¤‘
+  + atomic_ops êµ¬í˜„ì˜ static key ê¸°ìˆ  ë¶„ì„
 + commit : 261efe3bb57068e0dbf6cefd204d092554bf6fe3
 ------
 
-### 2020³â 18ÁÖÂ÷ ½ºÅÍµğ
-+ 2020³â 12¿ù 26ÀÏ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + arch/arm64/mm/mmu.c
-  + setup_arch() ÀÇ early_fixmap_init() ¸¶¹«¸®
-+ RCU ÀÌ·Ğ ½ºÅÍµğ
+### 18ì£¼ì°¨ ìŠ¤í„°ë””
++ 2020ë…„ 12ì›” 26ì¼
++ arch/arm64/kernel/setup.c setup_arch() ë¶„ì„ ì¤‘
+  + arch/arm64/mm/mmu.c early_fixmap_init() ë§ˆë¬´ë¦¬
++ RCU ì´ë¡  ìŠ¤í„°ë””
 ------
 
-### 2020³â 19ÁÖÂ÷ ½ºÅÍµğ
-+ 2021³â 1¿ù 2ÀÏ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + arch/arm64/kernel/setup.c
-  + setup_arch() ºĞ¼®
-  + early_ioremap_init() ºĞ¼®
-  + setup_machine_fdt() ºĞ¼® Áß
-  + fixmap_remap_fdt() ºĞ¼®
-+ RCU ÀÌ·Ğ ½ºÅÍµğ
+### 19ì£¼ì°¨ ìŠ¤í„°ë””
++ 2021ë…„ 1ì›” 2ì¼
++ arch/arm64/kernel/setup.c setup_arch() ë¶„ì„ ì¤‘
+  + early_ioremap_init() ë¶„ì„
+  + setup_machine_fdt() ë¶„ì„ ì¤‘
+    + fixmap_remap_fdt() ë¶„ì„
++ RCU ì´ë¡  ìŠ¤í„°ë””
 ------
 
-### 2020³â 20ÁÖÂ÷ ½ºÅÍµğ
-+ 2021³â 1¿ù 9ÀÏ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + arch/arm64/kernel/setup.c
-  + setup_arch() ºĞ¼®
-  + setup_machine_fdt() ºĞ¼® Áß
-  + memblock_reserve() ºĞ¼®
-  + early_init_dt_scan() ºĞ¼® Áß
-  + early_init_dt_scan_chosen() ºĞ¼® ¿Ï·á
-+ Device Tree ÀÌ·Ğ ½ºÅÍµğ
+### 20ì£¼ì°¨ ìŠ¤í„°ë””
++ 2021ë…„ 1ì›” 9ì¼
++ arch/arm64/kernel/setup.c setup_machine_fdt() ë¶„ì„ ì¤‘
+    + memblock_reserve() ë¶„ì„
+    + early_init_dt_scan() ë¶„ì„ ì¤‘
+    + early_init_dt_scan_chosen() ë¶„ì„ ì™„ë£Œ
++ Device Tree ì´ë¡  ìŠ¤í„°ë””
 ------
 
-### 2020³â 21ÁÖÂ÷ ½ºÅÍµğ
-+ 2021³â 1¿ù 16ÀÏ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + arch/arm64/kernel/setup.c
-  + setup_arch() ºĞ¼®
-  + early_init_dt_scan_nodes ºĞ¼®
-    + early_init_dt_scan_root
-    + early_init_dt_scan_memory
-  + kernel/jump_label.c
-  + jump_label_init() ºĞ¼®
-+ RCU ÀÌ·Ğ ½ºÅÍµğ
+### 21ì£¼ì°¨ ìŠ¤í„°ë””
++ 2021ë…„ 1ì›” 16ì¼
++ arch/arm64/kernel/setup.c setup_machine_fdt() ë¶„ì„
+  + early_init_dt_scan_nodes() ë¶„ì„
+    + early_init_dt_scan_root() ë¶„ì„
+    + early_init_dt_scan_memory() ë¶„ì„
++ kernel/jump_label.c jump_label_init() ë¶„ì„ ì¤‘
++ RCU ì´ë¡  ìŠ¤í„°ë””
 + commit : a1ee33e2b3f9b76605e8c878df7a822ad1c765bf
 ------
 
-### 2020³â 22ÁÖÂ÷ ½ºÅÍµğ
-+ 2021³â 1¿ù 23ÀÏ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + kernel/jump_label.c
-  + jump_label_init() ºĞ¼®
-  + cpus_read_lock() ºĞ¼®
-   + percpu_down_read
-+ ÀÌ·Ğ ½ºÅÍµğ
-  + spin-lock 
+### 22ì£¼ì°¨ ìŠ¤í„°ë””
++ 2021ë…„ 1ì›” 23ì¼
++ kernel/jump_label.c jump_label_init() ë¶„ì„ ì¤‘
+  + cpus_read_lock() ë¶„ì„
+    + percpu_down_read() ë¶„ì„
++ Spin-lock ì´ë¡  ìŠ¤í„°ë””
+  + ê¸°ë³¸ Spin-lock ê°œë…, Ticket-based
 + commit : 57aac235b4ff8fd2661ab08b5624a63909ea9284
 ------
 
-### 2020³â 23ÁÖÂ÷ ½ºÅÍµğ
-+ 2021³â 1¿ù 30ÀÏ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + kernel/jump_label.c
-  + jump_label_init() ºĞ¼®
-   + jump_entry ±¸Á¶
-  + parse_early_param() ºĞ¼®
-+ ÀÌ·Ğ ½ºÅÍµğ
-  + spin-lock ¹× qspin-lock (MCS lock)
+### 23ì£¼ì°¨ ìŠ¤í„°ë””
++ 2021ë…„ 1ì›” 30ì¼
++ arch/arm64/kernel/setup.c setup_arch() ë¶„ì„ ì¤‘
+  + kernel/jump_label.c jump_label_init() ë¶„ì„
+    + struct jump_entry êµ¬ì¡°
+  + parse_early_param() ë¶„ì„
++ Spin-lock ì´ë¡  ìŠ¤í„°ë””
+  + Qspinlock (mcs lock)
 + commit : 1d16538d546e99a876cbca3dc3eff12bfa3487dd
 ------
 
-### 2020³â 24ÁÖÂ÷ ½ºÅÍµğ
-+ 2021³â 2¿ù 6ÀÏ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + local_daif_restore ºĞ¼®
-  + xen_early_init (»ı·«)
-+ ÀÌ·Ğ ½ºÅÍµğ
-  + spin-lock ¹× qspin-lock (MCS lock)
+### 24ì£¼ì°¨ ìŠ¤í„°ë””
++ 2021ë…„ 2ì›” 6ì¼
++ arch/arm64/kernel/setup.c setup_arch() ë¶„ì„ ì¤‘
+  + local_daif_restore() ë¶„ì„
+  + xen_early_init (ìƒëµ)
++ Spin-lock ì´ë¡  ìŠ¤í„°ë””
+  + Qspinlock (mcs lock)
 ------
 
-### 2020³â 25ÁÖÂ÷ ½ºÅÍµğ
-+ 2021³â 2¿ù 20ÀÏ
-+ Á¶ ÅëÇÕ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + kernel/jump_label.c ³» ±âÁ¸ ½ºÅÍµğ ¼³¸í º¸Ãæ
-+ ÀÌ·Ğ ½ºÅÍµğ
-  + Cache ¹× ¹öÆÛ, Cache Coherency
+### 25ì£¼ì°¨ ìŠ¤í„°ë””
++ 2021ë…„ 2ì›” 20ì¼
++ ì¡° í†µí•©
++ arch/arm64/kernel/setup.c setup_arch() ë¶„ì„ ì¤‘
+  + kernel/jump_label.c ê¸°ì¡´ ìŠ¤í„°ë”” ë³´ì¶©
++ Cache ì´ë¡  ìŠ¤í„°ë””
+  + Cache ë° ë²„í¼, Cache Coherency
 ------
 
-### 2020³â 26ÁÖÂ÷ ½ºÅÍµğ
-+ 2021³â 2¿ù 27ÀÏ
-+ init/main.c start_kernel() ºĞ¼® Áß
-  + parse_early_param() ºĞ¼®
-  + local_daif_restore() ºĞ¼®
-+ ÀÌ·Ğ ½ºÅÍµğ
-  + Cache ±âº» µ¿ÀÛ
+### 26ì£¼ì°¨ ìŠ¤í„°ë””
++ 2021ë…„ 2ì›” 27ì¼
++ arch/arm64/kernel/setup.c setup_arch() ë¶„ì„ ì¤‘
+  + parse_early_param() ë¶„ì„
+  + local_daif_restore() ë¶„ì„
++ Cache ì´ë¡  ìŠ¤í„°ë””
+  + Cache ê¸°ë³¸ ë™ì‘
 ------
+
+### 27ì£¼ì°¨ ìŠ¤í„°ë””
++ 2021ë…„ 3ì›” 6ì¼
++ arch/arm64/kernel/setup.c setup_arch() ë¶„ì„ ì¤‘
+  + xen_early_init() ê°„ëµ ë¶„ì„ (ë¹Œë“œ ì—°ê²° í™•ì¸)
+  + efi_init() ìƒëµ (ì¶”í›„ ì´ë¡  ê³µë¶€ ì´í›„ ì‹œë„)
+  + arm64_memblock_init() ë¶„ì„ ì¤‘
++ Cache ì´ë¡  ìŠ¤í„°ë””
+  + Policy, Branch Prediction
+------
+
+### 28ì£¼ì°¨ ìŠ¤í„°ë””
++ 2021ë…„ 3ì›” 13ì¼
++ arch/arm64/mm/init.c arm64_memblock_init() ë¶„ì„ ì¤‘
+  + memblock ê´€ë ¨ API, ê°œë… ë¶„ì„
++ Cache ì´ë¡  ìŠ¤í„°ë””
+  + Barrier
