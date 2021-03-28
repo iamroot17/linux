@@ -240,3 +240,23 @@
   + memblock 관련 API, 개념 분석
 + Cache 이론 스터디
   + Barrier
+------
+
+### 29주차 스터디
++ 2021년 3월 20일
++ arch/arm64/mm/init.c arm64_memblock_init() 분석 중
+  + fdt_enforce_memory_region() 분석
+  + 물리 주소 범위, 가상 주소 범위 매핑 관련 분석
+  + v5.9 버그, 수정 사항 확인  
+    7bc1a0f9e1765830e945669c99c59c35cf9bca82
+  + initrd(ramdisk) 확인
++ Bus 이론 스터디
+  + PCI, PCIe 하드웨어 구성 및 특성 분석
+------
+
+### 30주차 스터디
++ 2021년 3월 27일
++ arch/arm64/mm/init.c arm64_memblock_init() 분석 중
+  + early_init_fdt_scan_reserved_mem() 분석
++ Bus 이론 스터디
+  + PCIe Link, transaction layer 관련 스터디
