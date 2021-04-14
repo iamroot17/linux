@@ -180,6 +180,10 @@ static int __init __reserved_mem_init_node(struct reserved_mem *rmem)
 		if (!of_flat_dt_is_compatible(rmem->fdt_node, compat))
 			continue;
 
+		/*; Iamroot17 2021.Apr.10 #
+		 *; 
+		 *; rmem_cma_setup() 함수가 실행된다.
+		 *; */
 		ret = initfn(rmem);
 		if (ret == 0) {
 			pr_info("initialized node %s, compatible id %s\n",

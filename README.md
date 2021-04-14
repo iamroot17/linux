@@ -260,3 +260,22 @@
   + early_init_fdt_scan_reserved_mem() 분석
 + Bus 이론 스터디
   + PCIe Link, transaction layer 관련 스터디
+------
+
+### 31주차 스터디
++ 2021년 4월 3일
++ arch/arm64/mm/init.c arm64_memblock_init() 분석 중
+  + reserve_crashkernel() 분석
++ qspinlock 이론 스터디
+  + Queued Spinlock, MCS lock 관련 스터디
+------
+
+### 32주차 스터디
++ 2021년 4월 10일
++ arch/arm64/mm/init.c arm64_memblock_init() 분석 중
+  + reserve_elfcorehdr() 분석
+  + dma_contiguous_reserve() 분석 중
++ qspinlock 이론 스터디
+  + Queued Spinlock, MCS lock 관련 스터디
+
+
