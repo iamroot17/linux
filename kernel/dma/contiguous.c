@@ -48,6 +48,13 @@ static phys_addr_t  size_cmdline __initdata = -1;
 static phys_addr_t base_cmdline __initdata;
 static phys_addr_t limit_cmdline __initdata;
 
+/*; Iamroot17 2021.Apr.10 #
+ *;
+ *; DTB에서 다음 파라미터를 parsing 하여 전역변수에 저장한다.
+ *; size_cmdline, base_cmdline, limit_cmdline
+ *; parse_early_param()에서 early_cma가 실행된다.
+ *; */
+
 static int __init early_cma(char *p)
 {
 	if (!p) {
@@ -339,3 +346,33 @@ static int __init rmem_cma_setup(struct reserved_mem *rmem)
 }
 RESERVEDMEM_OF_DECLARE(cma, "shared-dma-pool", rmem_cma_setup);
 #endif
+
+/*; Iamroot17 2021.Apr.10 #
+ *; RESERVEDMEM_OF_DECLARE(cma, "shared-dma-pool", rmem_cma_setup)을 다음과 같이 정리한다.
+ *;
+ *; include/linux/of_reserved_mem.h
+ *; #define RESERVEDMEM_OF_DECLARE(name, compat, init)			\
+	_OF_DECLARE(reservedmem, name, compat, init, reservedmem_of_init_fn)
+ *;
+ *; include/linux/of.h
+ *; #define _OF_DECLARE(table, name, compat, fn, fn_type)			\
+	static const struct of_device_id __of_table_##name		\
+		__used __section(__##table##_of_table)			\
+		 = { .compatible = compat,				\
+		     .data = (fn == (fn_type)NULL) ? fn : fn  }
+ *;
+ *; 정의에 의해 다음과 같이 변환된다.
+ *; static const struct of_device_id __of_table_cma = 
+   {
+    .compatible = "shared-dma-pool",
+    .data = rmem_cma_setup
+   };
+ *; __of_table_cma는 drivers/of/of_reserved_mem.c 에서 사용된다.
+ *;
+ *; fdt_reserved_mem_save_node에서 cma에 해당하는 reserved_mem 배열에 FDT node, uname, base, size를 기록한다.
+ *; 경로
+ *; arch/arm64/mm/init.c
+ *; arm64_memblock_init -> early_init_fdt_scan_reserved_mem -> __fdt_scan_reserved_mem
+ *; Drivers/of/fdt.c
+ *; __fdt_scan_reserved_mem -> fdt_reserved_mem_save_node
+ *; */
