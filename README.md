@@ -277,5 +277,24 @@
   + dma_contiguous_reserve() 분석 중
 + qspinlock 이론 스터디
   + Queued Spinlock, MCS lock 관련 스터디
+------
 
+### 33주차 스터디
++ 2021년 4월 17일
++ arch/arm64/mm/init.c arm64_memblock_init() 분석
+  + cma_declare_contiguous_nid() 분석
++ qspinlock 이론 스터디
+  + Queued Spinlock, MCS lock 구조 및 관계
+------
+
+### 34주차 스터디
++ 2021년 4월 24일
++ arch/arm64/kernel/setup.c paging init() 분석 중
+  + map_kernel_segment() 분석 중
+  + __create_pgd_mapping() 분석 중
+  + pgd, pud, pmd, pte 테이블 분석 중
++ qspinlock 이론 스터디
+  + kernel/locking/qspinlock.c
+  + queued_spin_lock_slowpath() 분석
+------
 
