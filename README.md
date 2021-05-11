@@ -298,3 +298,21 @@
   + queued_spin_lock_slowpath() 분석
 ------
 
+### 35주차 스터디
++ 2021년 5월 1일
++ arch/arm64/kernel/setup.c paging init() 분석 중
+  + __create_pgd_mapping() 분석 중
+  + alloc_init_pud() 분석 중
+  + BTI 개념 분석
++ ACPI, ROP 이론 스터디
+------
+
+### 36주차 스터디
++ 2021년 5월 8일
++ arch/arm64/kernel/setup.c paging init() 분석 중
+  + map_kernel_segment() 분석
+  + Contiguous bit와 TLB entry
++ Vmap 이론 스터디
+  + 변경 전 RB 트리, 리스트 동작 방식 분석
+  + Vmap update (v5.2-rc1)
+------
