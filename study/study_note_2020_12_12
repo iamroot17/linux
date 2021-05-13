@@ -1,0 +1,47 @@
+초기화 안된 static 변수는 BSS에서 관리함. C에서 초기화 안된 static 변수는 0/NULL로 초기화됨
+https://dreamlog.tistory.com/91
+
+__init 컴파일러 지시어 : 초기에만 필요한 데이터/코드로 컴파일러가 init 영역에 올려놓고 부팅 후 초기에 사용한뒤 초기화 끝나면 날려서 해당 메모리 영역을 일반 영역으로 사용
+https://kkoroke.tistory.com/entry/init-initdata-exit-exitdata
+
+built-in : 커널의 feature를 선택하여 build config를 설정
+1. kernel image의 일부로 설정
+2. module로 build
+3. 선택 안함
+
+
+RCU 개괄적 개념
+http://jake.dothome.co.kr/rcu/
+https://seokbeomkim.github.io/posts/rcu/
+https://xoit.tistory.com/48
+
+매크로를 do { } while (0) 형태로 만드는 이유
+1. 매크로에 ;을 취할 수 있게 해주는 의도
+2. block으로 감싸서 문법 오류 방지 (한 줄짜리 if의 경우)
+
+Sparse 툴 : 코드 정적 분석 도구
+http://jake.dothome.co.kr/sparse/
+https://www.kernel.org/doc/html/v4.12/dev-tools/sparse.html
+
+might_sleep : 지금 sleep할 수 있는지 체크 (디버그 용)
+# CONFIG_DEBUG_ATOMIC_SLEEP is not set
+might_reshed : preempt_voluntary config --> desktop only
+
+IDR : radix-tree로 ID를 pointer를 연결시키는 자료구조임
+https://en.wikipedia.org/wiki/Radix_tree
+http://jake.dothome.co.kr/radix-tree/
+http://jake.dothome.co.kr/idr/
+
+#define 문을 통해 radix-tree를 xarray라는 자료구조로 바꿔서 사용함
+https://namj.be/linux-kernel/2020-03-11-linux-radix-tree/2020-03-11-linux-radix-tree/
+https://www.kernel.bz/boardPost/118679/19
+
+GFP 플래그 (get free page) : 메모리 할당시 할당 옵션을 주는 플래그
+https://lwn.net/Articles/23042/
+http://blog.naver.com/PostView.nhn?blogId=crushhh&logNo=221631386014
+https://lwn.net/Articles/22909/
+
+__rcu_dereference_check():
+x = ({ a = a+1; b = b - 1; c});
+
+css_alloc : 부모 taskgroup의 css로부터 새로운 css를 할당

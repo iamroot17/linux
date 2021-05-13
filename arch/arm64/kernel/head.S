@@ -311,6 +311,13 @@ SYM_CODE_END(preserve_boot_args)
 	.macro populate_entries, tbl, rtbl, index, eindex, flags, inc, tmp1
 .Lpe\@:	phys_to_pte \tmp1, \rtbl
 	orr	\tmp1, \tmp1, \flags	// tmp1 = table entry
+	/*; Iamroot17A2 2020.Dec.19
+	 *; 각 배열에 저장하는 과정을 표현하는 어셈블리 코드다.
+	 *; ```c
+	 *; tbl[index << 3] = tmp1;
+	 *; ```
+	 *; 현재 64bit이므로 Logical shift-left 3 (주소값 + =8)
+	 *; */
 	str	\tmp1, [\tbl, \index, lsl #3]
 	add	\rtbl, \rtbl, \inc	// rtbl = pa next level
 	add	\index, \index, #1
@@ -540,6 +547,12 @@ SYM_FUNC_START_LOCAL(__create_page_tables)
 	ldr_l	x4, idmap_ptrs_per_pgd
 	mov	x5, x3				// __pa(__idmap_text_start)
 	adr_l	x6, __idmap_text_end		// __pa(__idmap_text_end)
+	/*; Iamroot17A2 2021.Jan.16
+	 *;  ffff800010dce000 T __idmap_text_start
+	 *;  ffff800010dce7a4 T __idmap_text_end
+	 *;  ffff800010000000 T _text
+	 *;  ffff800011dc0000 B _end
+	 *; */
 
 	map_memory x0, x1, x3, x6, x7, x3, x4, x10, x11, x12, x13, x14
 
@@ -582,6 +595,11 @@ SYM_FUNC_END(__create_page_tables)
  *
  *   x0 = __PHYS_OFFSET
  */
+/*; Iamroot17A2 2021.Jan.02
+ *;  ffff800011b00000 D init_stack
+ *;  ffff800011b00000 D init_thread_union
+ *;  ffff800011b04000 D __end_init_task <-- sp start(align: 0x8000)
+ *; */
 SYM_FUNC_START_LOCAL(__primary_switched)
 	adrp	x4, init_thread_union
 	add	sp, x4, #THREAD_SIZE

@@ -1,0 +1,201 @@
+static key 개념
+- http://jake.dothome.co.kr/static-keys/
+- http://jake.dothome.co.kr/jump_label_init/
+- https://wariua.github.io/facility/labels-and-static-key.html
+- 특정 조건에서만 실행하는 루틴으로 향하는 브랜치 인스트럭션을 런타임에 바꿔치키하는 것
+- 평상시엔 instructioin자리에 nop을 채워 두고, 실행은 직선으로 이어짐
+- 그러다가 런타임에 키 값을 바꾸면 그 키를 사용하는 지점들을 모두 branch 수행 instruction을 바꿈
+- 커널 및 모듈에서 조건문의 branch miss ratio를 낮추어서 성능을 향상시키는 목적
+- GCC 기능 및 커널 코드 교체 기술로 조건을 빠르게 수행할 수 있는 fast-path 기법
+- 조건문의 수행이 매우 빈번하고 고성능을 추구할 때 사용됨
+- static key와 jump label을 이용하여 구현됨
+- 코드 : include/linux/jump_label.h
+
+jump entry 및 jump table
+- jump table은 jump entry의 집합체
+- jump_table_start, jump_table_end로 link script에서 주소 영역이 정의되어 있음
+
+jump_entry 구조체
+- s32 code : NOP or JMP
+- s32 target : branch 조건이 맞으면 수행하는 코드
+- long key : 이 jump_entry가 사용하는 static key를 나타냄
+- key[0] : branch 여부를 나타냄 (NOP = 0 or JMP = 1)
+- key[1] : init 영역인지 여부를 나타냄
+
+static_key 구조체
+- atomic_t enabled : true or false에 따라 수행하는 코드 결정
+- union {
+   unsigned long type : key type (false/true/linked)
+   struct jump_entry *entries : 해당 static key를 사용하는 첫 번째 jump entry 주소
+   struct static_key_mod *next : jump_entry를 가리키는 module의 linked list 주소
+}
+
+=============================
+
+static_key : key_ll_sc
+default type : true인 경우
+
+DEFINE_STATIC_KEY_TRUE(key_ll_sc);
+
+if (static_branch_likely(&key_ll_sc))
+   ll_sc;
+else
+   lse;
+
+nop;
+llsc;
+1b:
+...
+return;
+
+L:
+lse;
+jmp 1b;
+
+===========================
+
+static_key : key_ll_sc
+default type : true인 경우
+
+DEFINE_STATIC_KEY_TRUE(key_ll_sc);
+
+if (static_branch_unlikely(&key_ll_sc))
+   ll_sc;
+else
+   lse;
+
+jmp L;
+lse;
+1b:
+...
+return;
+
+L:
+ll_sc;
+jmp 1b;
+
+
+=============================
+
+static_key : key_ll_sc
+default type : false인 경우
+
+DEFINE_STATIC_KEY_FALSE(key_ll_sc);
+
+if (static_branch_likely(&key_ll_sc))
+   ll_sc;
+else
+   lse;
+
+jmp L;
+llsc;
+1b:
+...
+return;
+
+L:
+lse;
+b 1b;
+
+
+=============================
+
+static_key : key_ll_sc
+default type : false인 경우
+
+DEFINE_STATIC_KEY_FALSE(key_ll_sc);
+
+if (static_branch_unlikely(&key_ll_sc))
+   ll_sc;
+else
+   lse;
+
+nop;
+lse;
+1b:
+...
+return;
+
+L:
+ll_sc;
+jmp 1b;
+
+==============================
+
+asm goto ("some asm" : output : input : clobber : label);
+- asm()을 다시 확장한 것으로 마지막에 label option이 있다
+- 해당 assembly 내에서 label로 점프할 수도 있다고 컴파일러에게 알려주는 것
+
+
+arch_static_branch()
+- nop 명령을 삽입하고 jump label을 생성한다
+
+arch_static_branch_jump()
+- jmp명령을 삽입하고 jump label 생성
+
+
+likely/unlikely 참조
+- https://tear94fall.github.io/lecture/2020/08/22/builtin-expect.html
+
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
+
+static_key_mod 구조체
+- struct static_key_mod *next
+- struct jump_entry *entries
+- struct module *mod : 해당 static key를 사용하는 module을 가리킴
+
+module 구조체
+- include/linux/module.h
+- kernel module
+
+arch/arm64/include/asm/jump_label.h
+arch_static_branch_jump
+
+
+jump_label_init()
+
+BUILD_BUG_ON((int)ATOMIC_INIT(0) != 0)
+BUILD_BUG_ON((int)ATOMIC_INIT(1) != 1)
+- STATIC_KEY_INIT_TRUE를 이전 패치에서 ATOMIC_INIT(1)에서 그냥 1로 바꿈
+- 따라서 그 두 값이 같은지 검증하기 위해 BUILD_BUG_ON 이용함
+
+cpus_read_lock()
+- percpu rw semaphore를 이용하여 percpu 데이터에 대해 read lock을 건다
+- RCU를 이용하여 구현 --> 성능 개선
+- https://www.kernel.org/doc/Documentation/percpu-rw-semaphore.txt
+
+jump_label_lock()
+- jump_label_mutex lock을 잡는다
+
+jump_label_sort_entries()
+- jump_table의 jump_entry들을 sort한다
+- jump_label_swap()을 이용해서 jump_entry를 swap (address delta값 이용)
+- jump_label_cmp()를 이용해서 jump_entry sorting (key로 sorting하고 key가 같으면 code로 sorting)
+- sort algorithm은 heap sort로 average와 worst case 모두 O(n*logn)이다
+
+이후 jump_table내의 jump_entry에 대해 iteration을 돌면서 다음을 수행
+
+arm32의 경우 JUMP_LABEL_NOP인 경우 NOP로 실제 code를 변경한다
+arm64는 원래 NOP 명령이 컴파일 되어 있는 상태이므로 변경 불필요
+arm64에서 arch_jump_label_transform_static() 함수는 아무것도 하지 않음
+
+jump_entry의 code가 init section에 포함되어 있는 경우 jump_entry의 key[1]을 1로 set
+
+jump_entry의 key->entries에 iter entry를 추가함
+key->type은 기존 type을 유지한다
+이전에 jump_table을 sorting했기 때문에 같은 static key를 사용하는 jump_entry 중 가장 첫 번째의 entry만 key->entries에 추가한다
+
+static_key_initalized 전역 변수를 true로 바꿈
+
+jump_label_unlock() : jump_label_mutex lock을 푼다
+cpus_read_unlock() : percpu read lock을 푼다
+
+
+
+
+=====================
+cache
+- associativity가 올라가면 latency가 증가하지만 hit rate가 올라간다
+- TLB는 fully associative cache 구조를 쓴다
+- https://aidanbae.github.io/code/devops/computer/cpucache/

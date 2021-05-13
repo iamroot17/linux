@@ -7583,6 +7583,10 @@ static inline struct task_group *css_tg(struct cgroup_subsys_state *css)
 static struct cgroup_subsys_state *
 cpu_cgroup_css_alloc(struct cgroup_subsys_state *parent_css)
 {
+	/*; Iamroot17A2 2020.Dec.26
+	 *; parent_css = (&cgrp_dfl_root.cgrp)->subsys[cpu_cgrp_id] = NULL;
+	 *; 결과적으로 css_tg(parent_css) == NULL
+	 *; */
 	struct task_group *parent = css_tg(parent_css);
 	struct task_group *tg;
 

@@ -1,0 +1,111 @@
+early_boot_irqs_disabled
+- local irq disable된 상태에서 원래는 허용되지 않는 동작이 이 변수가 true일 때 일부 허용됨
+
+RELOC_HIDE
+- __asm__ (““ : “=r“(__ptr) : “0“(ptr)) --> __ptr = ptr
+- http://jake.dothome.co.kr/inline-assembly/
+
+
+boot_cpu_init()
+
+cpu = smp_processor_id()
+- per_cpu 값인 cpu_number 값을 읽어온다
+- 현재 시점에서 cpu_number가 초기화 되기 전이므로 0인 것으로 판단됨
+- smp.c에서 초기화하는 것으로 생각됨 --> start_kernel의 거의 마지막 시점
+
+set_cpu_online : cpu의 online mask bit를 atomic하게 on으로 바꾸고 oneline cpu 변수를 increment
+set_cpu_active : cpu의 active mask bit를 set
+set_cpu_present : cpu의 present mask bit를 set
+set_cpu_possible : cpu의 possible mask bit를 set
+
+각 마스크는 cpu의 활성화 상태를 나타냄
+possible 마스크는 부팅시 고정되어 kernel run time 동안에는 불변임
+
+__boot_cpu_id = cpu
+
+
+page_address_init()
+
+- page_address_htabl 각 entry의 hash table이랑 spinlock을 초기화함
+- HASHED_PAGE_VIRTUAL이랑 WANT_PAGE_VIRTUAL이 정의 안되어 있으므로 아무것도 하지 않음
+
+linux banner string
+- https://pinocc.tistory.com/130
+
+early_security_init()
+
+- hlist_head / hlist_node
+: list_head와는 달리 head와 node가 각각 따로 구현되어 있음
+: head는 first만 있으면 되므로 메모리 측면에서 효율적
+: prev대신 pprev를 사용해서 head도 가리킬 수 있도록 함
+: pprev가 double pointer인 이유는 node가 아니라 next를 가리키기 때문
+: http://hejq.me/2014/05/29/lkds-hash-list/
+
+LSM : linux security module
+
+- struct security_hook_heads security_hook_heads
+: lsm_hooks.h에서 여러 개의 hlist_head를 정의함
+: hlist_head 390개로 구성된 구조체
+: struct랑 이름이 똑같은 전역 변수가 있음
+
+- security_hook_heads의 hlist_head 초기화 (first를 NULL로)
+- __start_early_lsm_info, __end_early_lsm_info : 주소로 link script에서 정의
+- system map에서는 둘 다 같은 주소로 되어 있음 (early lsm table은 비어있음)
+- 그냥 lsm table은 약 80Byte 차지
+
+linker script에서 KEEP은 reference가 되지 않는 symbol을 없애지 말라는 의미
+
+setup_arch()
+
+- command_line
+: start_kernel의 local 변수
+
+- init_mm.start_code = _text
+- init_mm.end_code = _etext
+- init_mm.end_data = _edata
+- init_mm.brk = _end
+
+init_mm은 mm_struct type이고 mm_struct는 마지막에 cpu_mask가 있음
+cpu_mask는 nr_cpu_ids에 따라 사이즈가 dynamic하게 달라져서 mm 사이즈를 따로 계산해준다.
+dynamic하게 nr_cpu_ids가 달라지는 이유는 부팅시에 cpu_possible_mask가 정해지기 때문이다.
+
+
+- boot_command_line
+: command line string
+: driver/of/fdt.c에서 FDT에서 읽어온다.
+: https://stackoverflow.com/questions/64877292/how-does-the-bootloader-pass-the-kernel-command-line-to-the-kernel
+: head.S에서 FDT(X0)를 __fdt_pointer에 저장함
+
+KPTI : kernel page table isolation
+- KASLR을 회피하는 공격을 방지하기 위한 기법
+- Meltdown mitigation 기법 중 하나
+- kaslr_offset()
+- E0PD HW 기능은 KPTI와 유사하여 이 기능이 있으면 KPTI를 쓰지 않는다
+- https://sata.kr/entry/%EB%B3%B4%EC%95%88-Issue-Meltdown%EB%A9%9C%ED%8A%B8%EB%8B%A4%EC%9A%B4-%EC%B7%A8%EC%95%BD%EC%A0%90%EC%9D%84-%ED%8C%8C%ED%97%A4%EC%B3%90%EB%B3%B4%EC%9E%90-1
+- 처음에 rax에 kernel 주소 데이터가 올라오는 것 자체를 차단
+- kernel mapping과 user mapping을 분리하여 user program에서는 kernel mapping을 없애는 기법
+- https://sf-jam.tistory.com/102
+
+KASLR은 bootloader가 물리주소를 randomize해서 kernel을 올려준다. ( < 2MB)
+그리고 head.S에서 kaslr_early_init에서 FDT를 이용해서 가상 주소를 randomize한다. (> 2MB)
+kernel은 vmalloc area의 중간 쯤에 mapping한다.
+KIMAGE_VADDR = VMALLOC_START = MODULES_END
+
+KASLR시 relocation하여 symbol의 가상 주소를 관리함
+http://blog.daum.net/tlos6733/182
+- head.S의 __relocate_kernel에서 처리함
+
+__rela_offset, __rela_size : vmlinux.lds.S에 정의되어 있음
+__rela_offset = 0x016c2358
+__rela_size = 0x4374f0
+System.map에 Absolute type이고 relocation을 하지 않는다.
+Symbol 접근시 symbol table (system.map) 사용하되 type에 따라 relocation 여부가 결정됨.
+
+
+E0PD 기능 : E0PD0/E0PD1
+- unprivileged access에 대해서는 아예 translation fault를 발생시켜서 register에 값을 읽어오는 것 자체를 막는다 --> KPTI와 동일 효과
+- https://developer.arm.com/docs/ddi0595/i/aarch64-system-registers/tcr_el1#E0PD0_1
+
+https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&cad=rja&uact=8&ved=2ahUKEwimn4jhyqDuAhVM7WEKHRaWDJwQFjABegQIARAC&url=https%3A%2F%2Fdeveloper.arm.com%2Fsupport%2Farm-security-updates%2Fspeculative-processor-vulnerability%2Fdownloads%2Fcache-speculation-side-channels-linux-kernel-mitigations&usg=AOvVaw1ZGr8tVf20j032lqVVROuj
+
+arm64_use_ng_mappings = kaslr_requires_kpti() 까지 진행

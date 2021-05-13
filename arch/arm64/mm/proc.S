@@ -452,6 +452,11 @@ SYM_FUNC_START(__cpu_setup)
 	 * via capabilities.
 	 */
 	mrs	x9, ID_AA64MMFR1_EL1
+	/*; Iamroot17A2 2020.Dec.19
+	 *; ```c
+	 *; x9 = x9 & 0x0F
+	 *; ```
+	 *; */
 	and	x9, x9, #0xf
 	cbz	x9, 1f
 	orr	x10, x10, #TCR_HA		// hardware Access flag update

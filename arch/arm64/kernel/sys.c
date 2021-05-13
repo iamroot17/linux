@@ -58,4 +58,5 @@ asmlinkage long __arm64_sys_ni_syscall(const struct pt_regs *__unused)
 const syscall_fn_t sys_call_table[__NR_syscalls] = {
 	[0 ... __NR_syscalls - 1] = __arm64_sys_ni_syscall,
 #include <asm/unistd.h>
+/*;	[__NR_read] = __arm64_sys_read, */
 };

@@ -69,6 +69,11 @@
 	 *; (C++ 함수 정의에서 default argument와 같은 역할)
 	 *; >> Iamroot17A 2020.Nov.21 #1.2 참고
 	 *; */
+	/*; Iamroot17A2 2021.Jan.02
+	 *; PC는 ELR_EL1에, PSTATE는 SPSR_EL1에, SP는 SP_EL1에 저장된다.
+	 *; el = 0, label = irq
+	 *; pt_regs를 위한 공간 할당 및 stack overflow를 확인함
+	 *; */
 	.macro kernel_ventry, el, label, regsize = 64
 	.align 7
 	/*; Iamroot17A 2020.Nov.21 #1.1.2
@@ -113,6 +118,49 @@ alternative_else_nop_endif
 	 *; XOR swap이 아닌 Arithmetic swap을 사용하는 이유는 X0와 SP의 값이
 	 *; overflow가 발생할 정도로 크기 않기 때문으로 예상됨.
 	 *; >> https://en.wikipedia.org/wiki/XOR_swap_algorithm#Variations 참고
+	 *; */
+	/*; Iamroot17A2 2020.Dec.26
+	 *; when CONFIG_VMAP_STACK is enabled, sp is initialized at 32K * N + 16K
+	 *; Refer to kernel/fork.c:243
+	 *; THREAD_SIZE=16K, THREAD_ALIGN=32K
+	 *; */
+	/*; Iamroot17A2 2021.Jan.02
+	 *; when CONFIG_VMAP_STACK is enabled, SP is initialized at 32K * N + 16K
+	 *; Refer to kernel/fork.c:243
+	 *; THREAD_SIZE=16K, THREAD_ALIGN=32K
+	 *; Valid sp should have '0' in its 14'th bit.
+	 *;
+	 *; (1) init_task
+	 *;	(a) allocation:
+	 *;	arch/arm64/kernel/vmlinux.lds.S
+	 *;		RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_ALIGN)
+	 *;	include/asm-generic/vmlinux.lds.h
+	 *;		#define RW_DATA(cacheline, pagealigned, inittask)	\
+	 *;			INIT_TASK_DATA(inittask)			\
+	 *;	include/asm-generic/vmlinux.lds.h
+	 *;		#define INIT_TASK_DATA(align)				\
+	 *;			__start_init_task = .;				\
+	 *;			init_thread_union = .;				\
+	 *;			init_stack = .;					\
+	 *;			. = __start_init_task + THREAD_SIZE;		\
+	 *;	(b) initialization:
+	 *;	arch/arm64/kernel/head.S - __primary_switched
+	 *;		sp = init_thread_union + THREAD_SIZE
+	 *;
+	 *; (2) other tasks
+	 *;	(a) allocation:
+	 *;	kernel/fork.c - alloc_thread_stack_node
+	 *;		stack = __vmalloc_node_range(THREAD_SIZE, THREAD_ALIGN,
+	 *;	(b) initialization:
+	 *;	arch/arm64/kernel/process.c - copy_thread
+	 *;		struct pt_regs *childregs = task_pt_regs(p);
+	 *;		p->thread.cpu_context.sp = (unsigned long)childregs;
+	 *;	arch/arm64/include/asm/processor.h
+	 *;		#define task_pt_regs(p) \
+	 *;			((struct pt_regs *)(THREAD_SIZE + task_stack_page(p)) - 1)
+	 *;	(c) restored in context switch:
+	 *;	arch/arm64/kernel/entry.S - cpu_switch_to
+	 *;		ldp	x29, x9, [x8], #16
 	 *; */
 	add	sp, sp, x0			// sp' = sp + x0
 	sub	x0, sp, x0			// x0' = sp' - x0 = (sp + x0) - x0 = sp
@@ -197,6 +245,25 @@ alternative_cb_end
 #endif
 	.endm
 
+	/*; Iamroot17A2 2021.Jan.09
+	 *; 1. store registers on stack(pt_regs)
+	 *; (2~8: for el0)
+	 *; 2. zero all registers
+	 *; 3. store user stack pointer(pt_regs)
+	 *; 4. read current task from per_cpu variable and store it in sp_el0
+	 *; 5. disable software step(debugging)
+	 *; 6. handle spectre security issue
+	 *; 7. install pointer authentication keys for kernel.
+	 *; 8. set shadow callstack
+	 *; 9. store lr, previous sp on stack(pt_regs)
+	 *; 10. el0: store zero on pt_regs->stackframe
+	 *; 11. el1: store x29 on pt_regs->stackframe
+	 *; 12. store &stackframe in x29
+	 *; 13. set PAN(Privileged Access Never)
+	 *; 14. store elr, spsr(pt_regs)
+	 *; 15. el0: store NO_SYSCALL(-1) on stack(pt_regs)
+	 *; 16. set PMR(Priority Masking Register)
+	 *; */
 	.macro	kernel_entry, el, regsize = 64
 	.if	\regsize == 32
 	mov	w0, w0				// zero upper 32 bits of x0
@@ -219,6 +286,12 @@ alternative_cb_end
 
 	.if	\el == 0
 	clear_gp_regs
+	/*; IamrootT17A2 2020.Dec.26
+	 *; sp_el0 is used as user stack pointer by EL0.
+	 *; Save this info into x21, and then use sp_el0 to indicate current
+	 *; task in EL1. current task is saved in
+	 *; __entry_task[per_cpu_offset(cpu)] by __switch_to()
+	 *; */
 	mrs	x21, sp_el0
 	ldr_this_cpu	tsk, __entry_task, x20
 	msr	sp_el0, tsk
@@ -268,6 +341,37 @@ alternative_else_nop_endif
 #endif
 
 	stp	x22, x23, [sp, #S_PC]
+
+	/*; Iamroot17A2 2021.Jan.02
+	 *; initial IRQ
+	 *; ---------------------- orig sp(1) (32K * n + 16K)
+	 *; 0, 0 (16 byte)
+	 *; ---------------------- <- x29(1) (pt_regs->stackframe)
+	 *;
+	 *; x22(elr_el1), x23(spsr_el1)
+	 *; lr, orig sp_el0
+	 *; x28, x29(0)
+	 *; ...
+	 *; x2, x3
+	 *; x0, x1
+	 *; ---------------------- new sp(2) (sp - s_frame_size) <-
+	 *;
+	 *;
+	 *; ...
+	 *;
+	 *; new IRQ
+	 *; ---------------------- sp(3): sp when new IRQ occured.
+	 *; x29(1), x22(elr_el1)
+	 *; ---------------------- <- x29(2) (pt_regs->stackframe)
+	 *;
+	 *; x22(elr_el1), x23(spsr_el1)
+	 *; lr, sp(3)
+	 *; x28, x29
+	 *; ...
+	 *; x2, x3
+	 *; x0, x1
+	 *; ---------------------- new sp (sp(3) - s_frame_size)
+	 *; */
 
 	/* Not in a syscall by default (el0_svc overwrites for real syscall) */
 	.if	\el == 0
@@ -439,11 +543,17 @@ SYM_CODE_END(__swpan_exit_el0)
 	 * If the top ~(THREAD_SIZE - 1) bits match, we are on a task stack,
 	 * and should switch to the irq stack.
 	 */
+	/*; Iamroot17A2 2020.Jan.09
+	 *; task_struct->stack = 0xffffffc0_ffff8000
+	 *; sp 0xffffffc0_ffffc000 ~ grows down
+	 *; sp = 0xffffffc0_ffffabcd
+	 *; */
 	ldr	x25, [tsk, TSK_STACK]
 	eor	x25, x25, x19
 	and	x25, x25, #~(THREAD_SIZE - 1)
 	cbnz	x25, 9998f
 
+	/*; irq_stack for cpu0 : 0x10000 ~ 0x14000 */
 	ldr_this_cpu x25, irq_stack_ptr, x26
 	mov	x26, #IRQ_STACK_SIZE
 	add	x26, x25, x26
@@ -542,6 +652,9 @@ SYM_CODE_START(vectors)
 	kernel_ventry	1, error			// Error EL1h
 
 	kernel_ventry	0, sync				// Synchronous 64-bit EL0
+	/*; Iamroot17A2 2021.Jan.02
+	 *; EL0에서 인터럽트 발생하는 경우에 대해 분석하도록 한다.
+	 *; */
 	kernel_ventry	0, irq				// IRQ 64-bit EL0
 	kernel_ventry	0, fiq_invalid			// FIQ 64-bit EL0
 	kernel_ventry	0, error			// Error 64-bit EL0

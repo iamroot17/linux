@@ -41,6 +41,22 @@
 	.endm
 
 	/* IRQ is the lowest priority flag, unconditionally unmask the rest. */
+/*; Iamroot17A2 2021.Jan.09
+ *; DAIF, Interrupt Mask Bits
+ *; Allows access to the interrupt mask bits.
+ *;  D, bit [9]: Debug exceptions.
+ *;  A, bit [8]: SError (System Error) mask bit.
+ *;  I, bit [7]: IRQ mask bit.
+ *;  F, bit [6]: FIQ mask bit.
+ *; value:
+ *;  0 Exception not masked.
+ *;  1 Exception masked.
+ *;
+ *; system registers:
+ *;  daif
+ *;  daifset
+ *;  daifclr
+ *; */
 	.macro enable_da_f
 	msr	daifclr, #(8 | 4 | 1)
 	.endm
@@ -343,6 +359,10 @@ alternative_endif
  * tcr_set_t0sz - update TCR.T0SZ so that we can load the ID map
  */
 	.macro	tcr_set_t0sz, valreg, t0sz
+	/*; Iamroot17A2 2020.Dec.19
+	 *; valreg = x0 (txsz)
+	 *; t0sz = x9 (idmap_t0sz == 16)
+	 *; */
 	bfi	\valreg, \t0sz, #TCR_T0SZ_OFFSET, #TCR_TxSZ_WIDTH
 	.endm
 
@@ -365,11 +385,22 @@ alternative_endif
 	mrs	\tmp0, ID_AA64MMFR0_EL1
 	// Narrow PARange to fit the PS field in TCR_ELx
 	ubfx	\tmp0, \tmp0, #ID_AA64MMFR0_PARANGE_SHIFT, #3
+	/*; Iamroot17A2 2020.Dec.19
+	 *; ID_AA64MMFR0_PARANGE_MAX == 0x05 (defconfig에서 48-bit로 설정)
+	 *; */
 	mov	\tmp1, #ID_AA64MMFR0_PARANGE_MAX
+	/*; Iamroot17A2 2020.Dec.19
+	 *; ```c
+	 *; tmp0 = (PARANGE > PARANGE_MAX) ? PARANCE_MAX : PARANGE
+	 *; ```
+	 *; */
 	cmp	\tmp0, \tmp1
 	csel	\tmp0, \tmp1, \tmp0, hi
 	bfi	\tcr, \tmp0, \pos, #3
 	.endm
+	/*; Iamroot17A2 2020.Dec.19
+	 *; va -(stage1)-> IPA -(stage2)-> PA
+	 *; */
 
 /*
  * Macro to perform a data cache maintenance for the interval
@@ -444,6 +475,16 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
  */
 	.macro	reset_pmuserenr_el0, tmpreg
 	mrs	\tmpreg, id_aa64dfr0_el1
+	/*; Iamroot17A2 2020.Dec.18
+	 *; SBFX: Signed Bit Field Extract
+	 *; sbfx Rd, Rn, #lsb, #width => Rn의 [lsb:lsb+width] 비트를 추출한다.
+	 *; 남는 상위 비트는 모두 1로 설정
+	 *; ```c
+	 *; tmpreg = (tmpreg >> ID_AA64DFR0_PMUVER_SHIFT) | -(1 << 4);
+	 *; ```
+	 *; ID_AA64DFR0_PMUVER_SHIFT == 20
+	 *; */
+    //ubfx (unsigned)
 	sbfx	\tmpreg, \tmpreg, #ID_AA64DFR0_PMUVER_SHIFT, #4
 	cmp	\tmpreg, #1			// Skip if no PMU present
 	b.lt	9000f
@@ -456,6 +497,15 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
  */
 	.macro	reset_amuserenr_el0, tmpreg
 	mrs	\tmpreg, id_aa64pfr0_el1	// Check ID_AA64PFR0_EL1
+	/*; Iamroot17A2 2020.Dec.18
+	 *; UBFX: Unsigned Bit Field Extract
+	 *; ubfx Rd, Rn, #lsb, #width => Rn의 [lsb:lsb+width] 비트를 추출한다.
+	 *; 남는 상위 비트는 모두 0으로 설정
+	 *; ```c
+	 *; tmpreg = (tmpreg >> ID_AA64DFR0_AMU_SHIFT) & ((1 << 4) - 1);
+	 *; ```
+	 *; ID_AA64DFR0_AMU_SHIFT == 44
+	 *; */
 	ubfx	\tmpreg, \tmpreg, #ID_AA64PFR0_AMU_SHIFT, #4
 	cbz	\tmpreg, .Lskip_\@		// Skip if no AMU present
 	msr_s	SYS_AMUSERENR_EL0, xzr		// Disable AMU access from EL0

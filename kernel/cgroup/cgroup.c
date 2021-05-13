@@ -5158,6 +5158,10 @@ static int online_css(struct cgroup_subsys_state *css)
 		css->flags |= CSS_ONLINE;
 		rcu_assign_pointer(css->cgroup->subsys[ss->id], css);
 
+		/*; Iamroot17A2 2020.Dec.26
+		 *; &(cgrp_dfl_root.cgrp)->subsys[cpu_cgrp_id] = &root_task_group.css;
+		 *; &(cgrp_dfl_root.cgrp)->subsys[cpuacct_cgrp_id] = &root_cpuacct.css;
+		 *; */
 		atomic_inc(&css->online_cnt);
 		if (css->parent)
 			atomic_inc(&css->parent->online_cnt);
@@ -5669,6 +5673,12 @@ static void __init cgroup_init_subsys(struct cgroup_subsys *ss, bool early)
 	/* Create the root cgroup state for this subsystem */
 	ss->root = &cgrp_dfl_root;
 	css = ss->css_alloc(cgroup_css(&cgrp_dfl_root.cgrp, ss));
+	/*; Iamroot17A2 2020.Dec.26
+	 *; css = &root_task_group.css (cpu)
+	 *; 혹은
+	 *; css = &root_cpuacct.css (cpuacct)
+	 *; */
+
 	/* We don't handle early failures gracefully */
 	BUG_ON(IS_ERR(css));
 	init_and_link_css(css, ss, &cgrp_dfl_root.cgrp);

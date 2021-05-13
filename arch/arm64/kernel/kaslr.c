@@ -190,7 +190,10 @@ u64 __init kaslr_early_init(u64 dt_phys)
 	 * map using contiguous PTEs
 	 */
 	mask = ((1UL << (VA_BITS_MIN - 2)) - 1) & ~(SZ_2M - 1);
+	/*; mask = 0x00004FFF_FFE00000 */
 	offset = BIT(VA_BITS_MIN - 3) + (seed & mask);
+	/*; offset = 0x00002000_00000000 + (seed & mask) */
+	/*; vmalloc_start + offset <- _text */
 
 	/* use the top 16 bits to randomize the linear region */
 	memstart_offset_seed = seed >> 48;

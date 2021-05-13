@@ -678,6 +678,9 @@ static inline unsigned long p4d_page_vaddr(p4d_t p4d)
 
 #define pgd_ERROR(pgd)		__pgd_error(__FILE__, __LINE__, pgd_val(pgd))
 
+/*; Iamroot17A2 2021.Jan.23
+ *; addr = phys(swapper_pg_dir+entry)
+ *; */
 #define pgd_set_fixmap(addr)	((pgd_t *)set_fixmap_offset(FIX_PGD, addr))
 #define pgd_clear_fixmap()	clear_fixmap(FIX_PGD)
 
