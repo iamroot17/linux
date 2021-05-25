@@ -316,3 +316,30 @@
   + 변경 전 RB 트리, 리스트 동작 방식 분석
   + Vmap update (v5.2-rc1)
 ------
+
+### 37주차 스터디
++ 2021년 5월 15일 (with 문 C)
++ arch/arm64/kernel/setup.c paging init() 분석 중
+  + map_kernel() 분석
+  + guard page
+    + kernel image 마지막에 넣어주어 compiler 호환성 문제는 없음
+  + 보안 이슈로 인한 swapper_pg_dir RO 영역 변경
++ 이론 스터디
+  + Memory sequence
+------
+
+### 38주차 스터디
++ 2021년 5월 22일
++ arch/arm64/kernel/setup.c paging init() 분석 중
+  + kasan 정리
+    + kasan_early_init() 모든 pte 가상 주소가 kasan_early_shadow_page 물리 주소를 바라보게 초기화
+  + map_mem()
+    + 모든 물리 주소 영역에 대해서 linear mapping 생성
+    + rodata off, on, full
+  + KEXEC
+    + 현재 돌아가는 커널에서 새로운 커널을 부팅하게 해주는 기술
++ 이론 스터디
+  + Memory Model
+  + Memmap, Vmemmap, Anonymous union
+------
+
