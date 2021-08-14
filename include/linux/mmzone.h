@@ -1122,7 +1122,7 @@ static inline struct zoneref *first_zones_zonelist(struct zonelist *zonelist,
 #define NR_MEM_SECTIONS		(1UL << SECTIONS_SHIFT)
 
 #define PAGES_PER_SECTION       (1UL << PFN_SECTION_SHIFT)
-#define PAGE_SECTION_MASK	(~(PAGES_PER_SECTION-1))
+#define PAGE_SECTION_MASK	(~(PAGES_PER_SECTION-1)) //0xFFFFFFFFFFFC0000
 
 #define SECTION_BLOCKFLAGS_BITS \
 	((1UL << (PFN_SECTION_SHIFT - pageblock_order)) * NR_PAGEBLOCK_BITS)
