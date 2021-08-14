@@ -88,6 +88,7 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 	int ret = 0;
 	unsigned long flags;
 	struct sleep_stack_data state;
+	// caller saved registers are stored
 
 	/*
 	 * From this point debug exceptions are disabled to prevent
@@ -103,8 +104,11 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 	 */
 	pause_graph_tracing();
 
+	// caller saved registers(ex. x9) are stored...
 	if (__cpu_suspend_enter(&state)) {
+		// restore caller saved registers
 		/* Call the suspend finisher */
+		// caller saved registers are stored...
 		ret = fn(arg);
 
 		/*

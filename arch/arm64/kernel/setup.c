@@ -149,7 +149,13 @@ static void __init smp_build_mpidr_hash(void)
 		ls = fls(affinity);
 		fs[i] = affinity ? ffs(affinity) - 1 : 0;
 		bits[i] = ls - fs[i];
+		// level 3 0b00110100
+		// level 2 0b00011000
+		// level 1 0b00000011
+		// level 0 0b00001010
+		// 1101 11 11 101
 	}
+	// mpidr_to_logical[MAX_SIZE] = {[0] = 0, ... [0b11011111101] = 230};
 	/*
 	 * An index can be created from the MPIDR_EL1 by isolating the
 	 * significant bits at each affinity level and by shifting
@@ -160,6 +166,7 @@ static void __init smp_build_mpidr_hash(void)
 	 * of CPUs that is not an exact power of 2 and their bit
 	 * representation might contain holes, eg MPIDR_EL1[7:0] = {0x2, 0x80}.
 	 */
+	// (mpidr ^ mpidr[0]) --> >> MPIDR_LEVEL_SHIFT(3) << fs[3]
 	mpidr_hash.shift_aff[0] = MPIDR_LEVEL_SHIFT(0) + fs[0];
 	mpidr_hash.shift_aff[1] = MPIDR_LEVEL_SHIFT(1) + fs[1] - bits[0];
 	mpidr_hash.shift_aff[2] = MPIDR_LEVEL_SHIFT(2) + fs[2] -
