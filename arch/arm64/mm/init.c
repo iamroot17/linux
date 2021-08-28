@@ -289,10 +289,17 @@ void __init arm64_memblock_init(void)
 	 */
 	memstart_addr = round_down(memblock_start_of_DRAM(),
 				   ARM64_MEMSTART_ALIGN);
+	// memblock_start_of_DRAM() = 0x60000000
+	// memstart_addr = 0x40000000
+	// PAGE_OFFSET = linear address start = 0xFFFF0000_00000000 --> 0x40000000
+	// 0xFFFF0000_20000000 --> 0x60000000
 
 	physvirt_offset = PHYS_OFFSET - PAGE_OFFSET;
 
 	vmemmap = ((struct page *)VMEMMAP_START - (memstart_addr >> PAGE_SHIFT));
+	// phys_to_page(0x0) = vmemmap[0]
+	// phys_to_page(0x40000000) = VMEMMAP_START = vmemmap[0x40000000/PAGE_SIZE]
+	// phys_to_page(0x60000000) = vmemmap[0x60000000/PAGE_SIZE]
 
 	/*
 	 * If we are running with a 52-bit kernel VA config on a system that
