@@ -867,6 +867,14 @@ void __init __weak arch_call_rest_init(void)
 	rest_init();
 }
 
+/*
+ * configuration after head.S
+ * daif masked(off)
+ * sp_el0 = init_task
+ * sp = init_stack + THREAD_SIZE
+ * ttbr0_el1 = idmap_pg_dir
+ * ttbr1_el1 = init_pg_dir
+ */
 asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 {
 	char *command_line;
