@@ -419,8 +419,19 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
 
 	arm64_memblock_init();
 
+	/*
+	 * iamroot17
+	 * make swapper_pg_dir
+	 *  - map kernel.
+	 *  - map entire memblock to linear region.
+	 *  - change ttbr1.
+	 */
 	paging_init();
 
+	/*
+	 * iamroot17
+	 * find acpi table inside initrd and copy the contents to newly allocated area.
+	 */
 	acpi_table_upgrade();
 
 	/* Parse the ACPI tables for possible boot-time configuration */
