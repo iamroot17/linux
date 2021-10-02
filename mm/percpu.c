@@ -2776,6 +2776,12 @@ static struct pcpu_alloc_info * __init pcpu_build_alloc_info(
 	ai->unit_size = alloc_size / upa;
 	ai->atom_size = atom_size;
 	ai->alloc_size = alloc_size;
+	/*
+	 * case 1) alloc_size == atom_size * k (k > 1)
+	 *  --> unit_size == atom_size
+	 * case 2) alloc_size == atom_size
+	 *  --> atom_size = unit_size * k
+	 */
 
 	for (group = 0, unit = 0; group < nr_groups; group++) {
 		struct pcpu_group_info *gi = &ai->groups[group];
