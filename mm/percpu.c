@@ -602,6 +602,7 @@ static void pcpu_block_update(struct pcpu_block_md *block, int start, int end)
 					block->contig_hint_start;
 				block->scan_hint = block->contig_hint;
 			} else if (start < block->scan_hint_start) {
+				/* && block->contig_hint == block->scan_hint */
 				/*
 				 * The old contig_hint == scan_hint.  But, the
 				 * new contig is larger so hold the invariant
@@ -622,9 +623,14 @@ static void pcpu_block_update(struct pcpu_block_md *block, int start, int end)
 			block->contig_hint_start = start;
 			if (start < block->scan_hint_start &&
 			    block->contig_hint > block->scan_hint)
+			/* && -> XNOR 로 바뀌어야 할거같음 */
 				block->scan_hint = 0;
 		} else if (start > block->scan_hint_start ||
 			   block->contig_hint > block->scan_hint) {
+			/* if (start > block->scan_hint_start &&
+			 *     block->contig_hint_start < start) {
+			 * 조건이 위와 같이 수정되어야 할거같음
+			 */
 			/*
 			 * Knowing contig == contig_hint, update the scan_hint
 			 * if it is farther than or larger than the current
