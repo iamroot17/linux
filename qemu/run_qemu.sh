@@ -1,6 +1,8 @@
 #!/bin/bash
 
-image=~/workspace/build/out/arch/arm64/boot/Image
+image=./images/Image
+initrd=./images/initramfs.cpio.gz
+
 qemu-system-aarch64 \
 	-machine virt \
 	-cpu cortex-a57 \
@@ -15,5 +17,6 @@ qemu-system-aarch64 \
 	-gdb tcp::1234 \
 	-S \
 	-kernel $image \
+	-initrd $initrd \
 #	-machine dumpdtb=dtb_dump.dtb \
 	-append "kgdboc=ttyS0,115200"
