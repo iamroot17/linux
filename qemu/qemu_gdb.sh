@@ -1,3 +1,3 @@
 #!/bin/bash
 
-gdb-multiarch ~/workspace/build/out/vmlinux -x qemu_gdb.cmd
+gdb-multiarch ./images/vmlinux -x qemu_gdb.cmd
