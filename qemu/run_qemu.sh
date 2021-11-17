@@ -1,6 +1,6 @@
 #!/bin/bash
 
-image=./images/Image
+image=./images/arch/arm64/boot/Image
 initrd=./images/initramfs.img.lz4
 
 qemu-system-aarch64 \
