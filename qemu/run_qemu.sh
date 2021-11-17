@@ -1,7 +1,7 @@
 #!/bin/bash
 
 image=./images/Image
-initrd=./images/initramfs.cpio.gz
+initrd=./images/initramfs.img.lz4
 
 qemu-system-aarch64 \
 	-machine virt \
@@ -15,8 +15,7 @@ qemu-system-aarch64 \
 	-numa dist,src=0,dst=1,val=20 \
 	-nographic \
 	-gdb tcp::1234 \
+	-monitor telnet::1235,server,nowait \
 	-S \
 	-kernel $image \
-	-initrd $initrd \
-#	-machine dumpdtb=dtb_dump.dtb \
-	-append "kgdboc=ttyS0,115200"
+	-initrd $initrd

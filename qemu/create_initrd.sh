@@ -2,5 +2,7 @@ BUILDS="../images"
 
 mkdir -p $BUILDS;
 
-cd initramfs;
-find . ! -name '.gitkeep' -print0 | cpio --null -ov --format=newc | gzip -9 > $BUILDS/initramfs.cpio.gz
+cd rootfs;
+find . ! -name '.git*' -print0 \
+	| cpio --null --create --verbose --owner root:root --format=newc \
+	| lz4c -l > $BUILDS/initramfs.img.lz4

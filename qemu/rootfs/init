@@ -1,0 +1,15 @@
+#! /bin/sh
+#
+# /init executable file in the initramfs
+#
+mount -t devtmpfs dev /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+
+cat <<!
+Boot took $(cut -d' ' -f1 /proc/uptime) seconds
+!
+
+ip link set up dev lo
+
+exec /sbin/init
