@@ -42,7 +42,8 @@ static void __kprobes *patch_map(void *addr, int fixmap)
 		return addr;
 
 	BUG_ON(!page);
-	return (void *)set_fixmap_offset(fixmap, page_to_phys(page) +
+	//return (void *)set_fixmap_offset(fixmap, page_to_phys(page) +
+	return (void *)set_fixmap_offset(FIX_TEXT_POKE0, page_to_phys(page) +
 			(uintaddr & ~PAGE_MASK));
 }
 
